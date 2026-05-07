@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p app/api/routes app/core app/models)",
+      "Bash(pip install *)",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(curl -s http://localhost:8000/api/v1/health)",
+      "Bash(python -m uvicorn app.main:app --host 127.0.0.1 --port 8000)",
+      "Bash(sleep 5 && cat /tmp/claude/c--Users-CRamos-SPA09NMW000102-Desktop-GymControl-API/e668cdd6-068d-41e9-97ab-615ad220b96f/tasks/bx06gchhy.output)",
+      "Read(//tmp/claude/c--Users-CRamos-SPA09NMW000102-Desktop-GymControl-API/e668cdd6-068d-41e9-97ab-615ad220b96f/tasks/**)",
+      "Bash(python -c ' *)",
+      "Bash(python -m uvicorn app.main:app --host 127.0.0.1 --port 5000)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(curl -s -X POST http://localhost:5000/api/v1/users/ -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"admin\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\",\\\\\"full_name\\\\\":\\\\\"Administrador\\\\\",\\\\\"role_id\\\\\":1}\")",
+      "Bash(curl -s -X POST http://localhost:5000/api/v1/users/ -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"maestro1\\\\\",\\\\\"password\\\\\":\\\\\"maestro123\\\\\",\\\\\"full_name\\\\\":\\\\\"Juan Perez\\\\\",\\\\\"role_id\\\\\":2}\")",
+      "Bash(curl -s http://localhost:5000/api/v1/users/)",
+      "Bash(pip uninstall *)",
+      "Bash(curl -s http://localhost:5000/api/v1/users/2)",
+      "Bash(curl -s -X PUT http://localhost:5000/api/v1/users/2 -H \"Content-Type: application/json\" -d \"{\\\\\"full_name\\\\\":\\\\\"Juan Lopez\\\\\"}\")",
+      "Bash(curl -s -X DELETE http://localhost:5000/api/v1/users/2)",
+      "Bash(curl -s \"http://localhost:5000/api/v1/users/?include_deleted=true\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\CRamos.SPA09NMW000102\\Desktop\\GymControl_API\\app\\api"
+    ]
+  }
+}
