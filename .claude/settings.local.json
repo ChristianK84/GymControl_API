@@ -18,7 +18,15 @@
       "Bash(curl -s http://localhost:5000/api/v1/users/2)",
       "Bash(curl -s -X PUT http://localhost:5000/api/v1/users/2 -H \"Content-Type: application/json\" -d \"{\\\\\"full_name\\\\\":\\\\\"Juan Lopez\\\\\"}\")",
       "Bash(curl -s -X DELETE http://localhost:5000/api/v1/users/2)",
-      "Bash(curl -s \"http://localhost:5000/api/v1/users/?include_deleted=true\")"
+      "Bash(curl -s \"http://localhost:5000/api/v1/users/?include_deleted=true\")",
+      "Bash(curl -s -X POST http://localhost:5000/api/v1/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"admin\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
+      "Bash(curl -s -X POST http://localhost:5000/api/v1/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"admin\\\\\",\\\\\"password\\\\\":\\\\\"wrong\\\\\"}\")",
+      "Bash(curl -s -X POST http://localhost:5000/api/v1/auth/login -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"fantasma\\\\\",\\\\\"password\\\\\":\\\\\"test123\\\\\"}\")",
+      "Bash(curl -s http://localhost:5000/api/v1/users/ -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImV4cCI6MTc3ODI4MjUyNX0.GRmyd45I5KIGqwmiO8kczBv4d2ZoTKS346i_oOziW-0\")",
+      "Bash(curl -s http://localhost:5000/api/v1/users/ -H \"Authorization: Bearer basura.token.falso\")",
+      "Bash(curl -s -X OPTIONS http://localhost:8000/api/v1/auth/login -H \"Origin: http://localhost:3000\" -H \"Access-Control-Request-Method: POST\" -I)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/auth/login -H \"Content-Type: application/json\" -H \"Origin: http://localhost:3000\" -d \"{\\\\\"username\\\\\":\\\\\"admin\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Login OK — user: {d[\\\\\"username\\\\\"]}, role_id: {d[\\\\\"role_id\\\\\"]}'\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\CRamos.SPA09NMW000102\\Desktop\\GymControl_API\\app\\api"
