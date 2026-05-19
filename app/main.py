@@ -3,20 +3,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, health, users
+from app.api.routes import alumnos, auth, health, roles, users
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.models import (  # noqa: F401 — registra todos los modelos en Base.metadata
     Alumno,
     Asistencia,
+    ContactoEmergencia,
     EstadoMembresia,
-    Genero,
-    GrupoEdad,
+    FichaMedica,
     Maestro,
     Membresia,
     Rol,
     TipoMembresia,
     Transaccion,
+    Tutor,
     User,
 )
 
@@ -43,7 +44,9 @@ app.add_middleware(
 
 app.include_router(health.router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
+app.include_router(roles.router, prefix=settings.API_V1_PREFIX)
 app.include_router(users.router, prefix=settings.API_V1_PREFIX)
+app.include_router(alumnos.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/")

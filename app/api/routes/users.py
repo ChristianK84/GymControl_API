@@ -52,7 +52,18 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
+    if payload.username and payload.username != user.username:
+        existing = db.query(User).filter(User.username == payload.username).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="El username ya existe")
+
     update_data = payload.model_dump(exclude_unset=True)
+
+    if "password" in update_data and update_data["password"]:
+        update_data["password_hash"] = hash_password(update_data.pop("password"))
+    elif "password" in update_data:
+        del update_data["password"]
+
     for field, value in update_data.items():
         setattr(user, field, value)
 

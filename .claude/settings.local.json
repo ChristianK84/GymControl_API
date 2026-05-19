@@ -26,7 +26,21 @@
       "Bash(curl -s http://localhost:5000/api/v1/users/ -H \"Authorization: Bearer basura.token.falso\")",
       "Bash(curl -s -X OPTIONS http://localhost:8000/api/v1/auth/login -H \"Origin: http://localhost:3000\" -H \"Access-Control-Request-Method: POST\" -I)",
       "Bash(curl -s -X POST http://localhost:8000/api/v1/auth/login -H \"Content-Type: application/json\" -H \"Origin: http://localhost:3000\" -d \"{\\\\\"username\\\\\":\\\\\"admin\\\\\",\\\\\"password\\\\\":\\\\\"admin123\\\\\"}\")",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Login OK — user: {d[\\\\\"username\\\\\"]}, role_id: {d[\\\\\"role_id\\\\\"]}'\\)\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Login OK — user: {d[\\\\\"username\\\\\"]}, role_id: {d[\\\\\"role_id\\\\\"]}'\\)\")",
+      "Bash(curl -s http://127.0.0.1:5000/api/v1/roles/)",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s http://127.0.0.1:5000/api/v1/roles/1)",
+      "Bash(kill %1)",
+      "Bash(curl -s -X PUT http://127.0.0.1:5000/api/v1/users/4 -H 'Content-Type: application/json' -d '{\"username\":\"maestro1_edit\",\"password\":\"nuevopass123\",\"full_name\":\"Maestro Uno Editado\"}')",
+      "Bash(curl -s http://127.0.0.1:5000/api/v1/alumnos/)",
+      "Bash(curl -s http://127.0.0.1:5000/api/v1/alumnos/2)",
+      "Bash(curl -s -X POST http://127.0.0.1:5000/api/v1/alumnos/ -H 'Content-Type: application/json' -d '{\"nombrecompleto\":\"Ana Maria\",\"apellido_paterno\":\"Lopez\",\"rama\":\"Femenil\",\"fecha_nacimiento\":\"2017-03-22\",\"maestro_id\":1,\"fecha_inscripcion\":\"2026-05-19\",\"tutor\":{\"nombre\":\"Rosa\",\"apellido_paterno\":\"Lopez\",\"telefono\":\"5598765432\",\"email\":\"rosa@test.com\"},\"contacto_emergencia\":{\"nombre\":\"Jose\",\"apellido_paterno\":\"Lopez\",\"telefono\":\"5511122233\"},\"ficha_medica\":{\"tipo_sangre\":\"A+\",\"alergias\":\"Penicilina\"}}')",
+      "Bash(curl -s -X PUT http://127.0.0.1:5000/api/v1/alumnos/2 -H 'Content-Type: application/json' -d '{\"fotografia\":\"juan_perez.jpg\",\"tutor\":{\"telefono\":\"5500000000\"}}')",
+      "Bash(curl -s -o /dev/null -w \"DELETE status: %{http_code}\\\\n\" -X DELETE http://127.0.0.1:5000/api/v1/alumnos/3)",
+      "Bash(curl -s \"http://127.0.0.1:5000/api/v1/alumnos/\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Alumnos activos: {len\\(d\\)}'\\)\")",
+      "Bash(curl -s \"http://127.0.0.1:5000/api/v1/alumnos/?include_deleted=true\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Alumnos totales: {len\\(d\\)}'\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\CRamos.SPA09NMW000102\\Desktop\\GymControl_API\\app\\api"

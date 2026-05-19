@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, SmallInteger, String, func
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -20,9 +20,6 @@ class Maestro(Base):
     telefono: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     foto: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     fecha_nacimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    genero_id: Mapped[Optional[int]] = mapped_column(
-        SmallInteger, ForeignKey("generos.id"), nullable=True
-    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -35,5 +32,4 @@ class Maestro(Base):
     )
 
     user: Mapped[Optional["User"]] = relationship("User")
-    genero: Mapped[Optional["Genero"]] = relationship("Genero")
     alumnos: Mapped[list["Alumno"]] = relationship("Alumno", back_populates="maestro")

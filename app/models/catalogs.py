@@ -18,29 +18,6 @@ class Rol(Base):
     )
 
 
-class Genero(Base):
-    __tablename__ = "generos"
-
-    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=True)
-    nombre: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.current_timestamp()
-    )
-
-
-class GrupoEdad(Base):
-    __tablename__ = "grupos_edad"
-
-    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=True)
-    nombre: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    descripcion: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    edad_min: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
-    edad_max: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.current_timestamp()
-    )
-
-
 class EstadoMembresia(Base):
     __tablename__ = "estados_membresia"
 
