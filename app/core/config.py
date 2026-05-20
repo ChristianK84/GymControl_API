@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://postgres.ksyxiqwbkembvxjmxygu:KatirasGym2026@aws-1-us-west-2.pooler.supabase.com:6543/postgres"
     SECRET_KEY: str = "change-me-in-production-use-a-random-string"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

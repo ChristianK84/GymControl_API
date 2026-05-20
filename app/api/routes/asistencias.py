@@ -3,6 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.dependencies import require_maestro
 from app.core.database import get_db
 from app.models import Alumno, Asistencia
 from app.schemas.asistencias import (
@@ -22,7 +23,7 @@ def _asistencia_base_query(db: Session):
 
 
 @router.post("/", response_model=AsistenciaResponse, status_code=201)
-def create_asistencia(payload: AsistenciaCreate, db: Session = Depends(get_db)):
+def create_asistencia(payload: AsistenciaCreate, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     alumno = db.query(Alumno).filter(
         Alumno.id == payload.alumno_id, Alumno.is_deleted == False
     ).first()
@@ -49,6 +50,7 @@ def list_asistencias(
     fecha_desde: date = Query(None),
     fecha_hasta: date = Query(None),
     db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
 ):
     q = _asistencia_base_query(db)
     if alumno_id:
@@ -63,7 +65,7 @@ def list_asistencias(
 
 
 @router.get("/{asistencia_id}", response_model=AsistenciaResponse)
-def get_asistencia(asistencia_id: int, db: Session = Depends(get_db)):
+def get_asistencia(asistencia_id: int, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     asistencia = _asistencia_base_query(db).filter(Asistencia.id == asistencia_id).first()
     if not asistencia:
         raise HTTPException(status_code=404, detail="Asistencia no encontrada")
@@ -71,7 +73,7 @@ def get_asistencia(asistencia_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{asistencia_id}", response_model=AsistenciaResponse)
-def update_asistencia(asistencia_id: int, payload: AsistenciaUpdate, db: Session = Depends(get_db)):
+def update_asistencia(asistencia_id: int, payload: AsistenciaUpdate, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     asistencia = _asistencia_base_query(db).filter(Asistencia.id == asistencia_id).first()
     if not asistencia:
         raise HTTPException(status_code=404, detail="Asistencia no encontrada")
@@ -86,7 +88,7 @@ def update_asistencia(asistencia_id: int, payload: AsistenciaUpdate, db: Session
 
 
 @router.delete("/{asistencia_id}", status_code=204)
-def delete_asistencia(asistencia_id: int, db: Session = Depends(get_db)):
+def delete_asistencia(asistencia_id: int, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     asistencia = db.query(Asistencia).filter(Asistencia.id == asistencia_id).first()
     if not asistencia:
         raise HTTPException(status_code=404, detail="Asistencia no encontrada")

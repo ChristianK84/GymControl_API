@@ -54,7 +54,8 @@
       "Bash(curl -s -X POST http://127.0.0.1:5000/api/v1/asistencias/ -H 'Content-Type: application/json' -d '{\"alumno_id\":2,\"maestro_id\":1,\"fecha\":\"2026-05-20\",\"asistio\":false,\"notas\":\"Falta\"}')",
       "Bash(curl -s \"http://127.0.0.1:5000/api/v1/asistencias/?alumno_id=2\")",
       "Bash(curl -s -X PUT http://127.0.0.1:5000/api/v1/asistencias/1 -H 'Content-Type: application/json' -d '{\"asistio\":false,\"notas\":\"Falta justificada\"}')",
-      "Bash(curl -s \"http://127.0.0.1:5000/api/v1/asistencias/\")"
+      "Bash(curl -s \"http://127.0.0.1:5000/api/v1/asistencias/\")",
+      "Bash(python -c \"import socket; s=socket.socket\\(\\); s.settimeout\\(5\\); s.connect\\(\\('aws-1-us-west-2.pooler.supabase.com', 6543\\)\\); print\\('Conexion OK'\\); s.close\\(\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\CRamos.SPA09NMW000102\\Desktop\\GymControl_API\\app\\api"

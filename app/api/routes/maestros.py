@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.dependencies import get_current_user, require_admin
 from app.core.database import get_db
 from app.models import Maestro, User
 from app.schemas.maestros import (
@@ -17,7 +18,7 @@ def _maestro_base_query(db: Session):
 
 
 @router.post("/", response_model=MaestroResponse, status_code=201)
-def create_maestro(payload: MaestroCreate, db: Session = Depends(get_db)):
+def create_maestro(payload: MaestroCreate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     if payload.user_id is not None:
         existing = db.query(Maestro).filter(Maestro.user_id == payload.user_id).first()
         if existing:
@@ -36,6 +37,7 @@ def create_maestro(payload: MaestroCreate, db: Session = Depends(get_db)):
 def list_maestros(
     include_deleted: bool = Query(False),
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     q = _maestro_base_query(db)
     if not include_deleted:
@@ -44,7 +46,7 @@ def list_maestros(
 
 
 @router.get("/{maestro_id}", response_model=MaestroResponse)
-def get_maestro(maestro_id: int, db: Session = Depends(get_db)):
+def get_maestro(maestro_id: int, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     maestro = _maestro_base_query(db).filter(Maestro.id == maestro_id).first()
     if not maestro:
         raise HTTPException(status_code=404, detail="Maestro no encontrado")
@@ -52,7 +54,7 @@ def get_maestro(maestro_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{maestro_id}", response_model=MaestroResponse)
-def update_maestro(maestro_id: int, payload: MaestroUpdate, db: Session = Depends(get_db)):
+def update_maestro(maestro_id: int, payload: MaestroUpdate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     maestro = _maestro_base_query(db).filter(Maestro.id == maestro_id).first()
     if not maestro:
         raise HTTPException(status_code=404, detail="Maestro no encontrado")
@@ -72,7 +74,7 @@ def update_maestro(maestro_id: int, payload: MaestroUpdate, db: Session = Depend
 
 
 @router.delete("/{maestro_id}", status_code=204)
-def delete_maestro(maestro_id: int, db: Session = Depends(get_db)):
+def delete_maestro(maestro_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     maestro = db.query(Maestro).filter(Maestro.id == maestro_id).first()
     if not maestro:
         raise HTTPException(status_code=404, detail="Maestro no encontrado")

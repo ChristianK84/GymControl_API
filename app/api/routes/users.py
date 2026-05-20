@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import require_admin
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.models import User
@@ -10,7 +11,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.post("/", response_model=UserResponse, status_code=201)
-def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+def create_user(payload: UserCreate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     existing = db.query(User).filter(User.username == payload.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="El username ya existe")
@@ -31,6 +32,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
 def list_users(
     include_deleted: bool = Query(False),
     db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
 ):
     q = db.query(User)
     if not include_deleted:
@@ -39,7 +41,7 @@ def list_users(
 
 
 @router.get("/{user_id}", response_model=UserResponse)
-def get_user(user_id: int, db: Session = Depends(get_db)):
+def get_user(user_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -47,7 +49,7 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{user_id}", response_model=UserResponse)
-def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
+def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -73,7 +75,7 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
 
 
 @router.delete("/{user_id}", status_code=204)
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+def delete_user(user_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")

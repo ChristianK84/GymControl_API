@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.dependencies import get_current_user, require_maestro
 from app.core.database import get_db
 from app.models import Alumno, ContactoEmergencia, FichaMedica, Tutor
 from app.schemas.alumnos import (
@@ -21,7 +22,7 @@ def _alumno_base_query(db: Session):
 
 
 @router.post("/", response_model=AlumnoResponse, status_code=201)
-def create_alumno(payload: AlumnoCreate, db: Session = Depends(get_db)):
+def create_alumno(payload: AlumnoCreate, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     alumno = Alumno(
         nombrecompleto=payload.nombrecompleto,
         apellido_paterno=payload.apellido_paterno,
@@ -47,6 +48,7 @@ def create_alumno(payload: AlumnoCreate, db: Session = Depends(get_db)):
 def list_alumnos(
     include_deleted: bool = Query(False),
     db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     q = _alumno_base_query(db)
     if not include_deleted:
@@ -55,7 +57,7 @@ def list_alumnos(
 
 
 @router.get("/{alumno_id}", response_model=AlumnoResponse)
-def get_alumno(alumno_id: int, db: Session = Depends(get_db)):
+def get_alumno(alumno_id: int, db: Session = Depends(get_db), _user=Depends(get_current_user)):
     alumno = _alumno_base_query(db).filter(Alumno.id == alumno_id).first()
     if not alumno:
         raise HTTPException(status_code=404, detail="Alumno no encontrado")
@@ -63,7 +65,7 @@ def get_alumno(alumno_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{alumno_id}", response_model=AlumnoResponse)
-def update_alumno(alumno_id: int, payload: AlumnoUpdate, db: Session = Depends(get_db)):
+def update_alumno(alumno_id: int, payload: AlumnoUpdate, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     alumno = _alumno_base_query(db).filter(Alumno.id == alumno_id).first()
     if not alumno:
         raise HTTPException(status_code=404, detail="Alumno no encontrado")
@@ -107,7 +109,7 @@ def update_alumno(alumno_id: int, payload: AlumnoUpdate, db: Session = Depends(g
 
 
 @router.delete("/{alumno_id}", status_code=204)
-def delete_alumno(alumno_id: int, db: Session = Depends(get_db)):
+def delete_alumno(alumno_id: int, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     alumno = db.query(Alumno).filter(Alumno.id == alumno_id).first()
     if not alumno:
         raise HTTPException(status_code=404, detail="Alumno no encontrado")
