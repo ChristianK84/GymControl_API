@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
@@ -47,8 +47,8 @@ def create_asistencia(payload: AsistenciaCreate, db: Session = Depends(get_db), 
 def list_asistencias(
     alumno_id: int = Query(None),
     maestro_id: int = Query(None),
-    fecha_desde: date = Query(None),
-    fecha_hasta: date = Query(None),
+    fecha_desde: datetime = Query(None),
+    fecha_hasta: datetime = Query(None),
     db: Session = Depends(get_db),
     _maestro=Depends(require_maestro),
 ):

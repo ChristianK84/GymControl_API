@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 class AsistenciaCreate(BaseModel):
     alumno_id: int
     maestro_id: int
-    fecha: date
+    fecha: datetime
     asistio: bool
     notas: Optional[str] = None
     registrado_por: Optional[int] = None
@@ -41,7 +41,7 @@ class AsistenciaResponse(BaseModel):
     id: int
     alumno_id: int
     maestro_id: int
-    fecha: date
+    fecha: datetime
     asistio: bool
     notas: Optional[str]
     registrado_por: Optional[int]
