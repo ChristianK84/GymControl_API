@@ -67,7 +67,7 @@ async def landing():
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 40%, #16213e 100%);
+            background: linear-gradient(160deg, #0a0a0a 0%, #1a1a1a 50%, #0d0d0d 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -79,15 +79,15 @@ async def landing():
             padding: 3rem;
         }
         .logo {
-            width: 140px;
-            height: 140px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             object-fit: contain;
-            background: rgba(255,255,255,0.06);
+            background: rgba(255,255,255,0.04);
             backdrop-filter: blur(10px);
-            padding: 20px;
+            padding: 18px;
             margin-bottom: 2rem;
-            box-shadow: 0 0 60px rgba(99, 102, 241, 0.15);
+            box-shadow: 0 0 60px rgba(220, 38, 38, 0.2);
             transition: transform 0.3s ease;
         }
         .logo:hover {
@@ -95,35 +95,42 @@ async def landing():
         }
         .logo-placeholder {
             display: inline-block;
-            width: 140px;
-            height: 140px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            background: linear-gradient(135deg, #dc2626, #991b1b);
             margin-bottom: 2rem;
-            box-shadow: 0 0 60px rgba(99, 102, 241, 0.25);
-            line-height: 140px;
+            box-shadow: 0 0 60px rgba(220, 38, 38, 0.35);
+            line-height: 150px;
             font-size: 3rem;
             font-weight: 700;
             color: white;
             letter-spacing: 2px;
         }
+        .divider {
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #dc2626, transparent);
+            margin: 0 auto 1rem;
+        }
         h1 {
             font-size: 2.4rem;
             font-weight: 700;
-            color: #f1f5f9;
+            color: #ffffff;
             letter-spacing: -0.5px;
             margin-bottom: 0.3rem;
         }
         .subtitle {
             font-size: 1.1rem;
-            color: #94a3b8;
+            color: #a3a3a3;
             font-weight: 400;
             margin-bottom: 0.8rem;
         }
         .version {
             display: inline-block;
-            background: rgba(99, 102, 241, 0.15);
-            color: #a5b4fc;
+            background: rgba(220, 38, 38, 0.12);
+            color: #f87171;
+            border: 1px solid rgba(220, 38, 38, 0.25);
             padding: 0.25rem 1rem;
             border-radius: 20px;
             font-size: 0.85rem;
@@ -133,8 +140,8 @@ async def landing():
         }
         .footer {
             font-size: 0.8rem;
-            color: #64748b;
-            border-top: 1px solid rgba(255,255,255,0.06);
+            color: #737373;
+            border-top: 1px solid rgba(255,255,255,0.08);
             padding-top: 1.5rem;
             margin-top: 0.5rem;
         }
@@ -144,12 +151,12 @@ async def landing():
             gap: 6px;
             margin-bottom: 2rem;
             font-size: 0.8rem;
-            color: #22c55e;
+            color: #dc2626;
         }
         .status-dot {
             width: 8px;
             height: 8px;
-            background: #22c55e;
+            background: #dc2626;
             border-radius: 50%;
             animation: pulse 2s infinite;
         }
@@ -161,7 +168,7 @@ async def landing():
 </head>
 <body>
     <div class="container">
-        <img src="/static/logo.jpg" alt="Katiras Gymnastics" class="logo"
+        <img src="/static/logo.jpeg" alt="Katiras Gymnastics" class="logo"
              onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
         <div class="logo-placeholder" style="display:none;">KG</div>
 
