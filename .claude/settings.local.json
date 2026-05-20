@@ -40,7 +40,21 @@
       "Bash(curl -s \"http://127.0.0.1:5000/api/v1/alumnos/\")",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Alumnos activos: {len\\(d\\)}'\\)\")",
       "Bash(curl -s \"http://127.0.0.1:5000/api/v1/alumnos/?include_deleted=true\")",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Alumnos totales: {len\\(d\\)}'\\)\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Alumnos totales: {len\\(d\\)}'\\)\")",
+      "Bash(curl -s http://127.0.0.1:5000/api/v1/maestros/)",
+      "Bash(curl -s http://127.0.0.1:5000/api/v1/maestros/2)",
+      "Bash(curl -s -X POST http://127.0.0.1:5000/api/v1/maestros/ -H 'Content-Type: application/json' -d '{\"nombre\":\"Laura\",\"apellido_paterno\":\"Ramirez\",\"telefono\":\"5599998888\",\"user_id\":5}')",
+      "Bash(curl -s -X PUT http://127.0.0.1:5000/api/v1/maestros/2 -H 'Content-Type: application/json' -d '{\"telefono\":\"5500001111\"}')",
+      "Bash(curl -s -o /dev/null -w \"Status: %{http_code}\" -X DELETE http://127.0.0.1:5000/api/v1/maestros/3)",
+      "Bash(pkill -f uvicorn)",
+      "Bash(curl -s -X POST http://127.0.0.1:5000/api/v1/maestros/ -H 'Content-Type: application/json' -d '{\"nombre\":\"Laura\",\"apellido_paterno\":\"Ramirez\",\"telefono\":\"5599998888\",\"user_id\":6}')",
+      "Bash(curl -s -X PUT http://127.0.0.1:5000/api/v1/maestros/2 -H 'Content-Type: application/json' -d '{\"telefono\":\"5500001111\",\"foto\":\"marco.jpg\"}')",
+      "Bash(curl -s http://127.0.0.1:5000/api/v1/maestros/99)",
+      "Bash(curl -s -X POST http://127.0.0.1:5000/api/v1/asistencias/ -H 'Content-Type: application/json' -d '{\"alumno_id\":2,\"maestro_id\":1,\"fecha\":\"2026-05-20\",\"asistio\":true,\"notas\":\"Llego puntual\"}')",
+      "Bash(curl -s -X POST http://127.0.0.1:5000/api/v1/asistencias/ -H 'Content-Type: application/json' -d '{\"alumno_id\":2,\"maestro_id\":1,\"fecha\":\"2026-05-20\",\"asistio\":false,\"notas\":\"Falta\"}')",
+      "Bash(curl -s \"http://127.0.0.1:5000/api/v1/asistencias/?alumno_id=2\")",
+      "Bash(curl -s -X PUT http://127.0.0.1:5000/api/v1/asistencias/1 -H 'Content-Type: application/json' -d '{\"asistio\":false,\"notas\":\"Falta justificada\"}')",
+      "Bash(curl -s \"http://127.0.0.1:5000/api/v1/asistencias/\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\CRamos.SPA09NMW000102\\Desktop\\GymControl_API\\app\\api"

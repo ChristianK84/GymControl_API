@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import alumnos, auth, health, roles, users
+from app.api.routes import alumnos, asistencias, auth, health, maestros, roles, users
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.models import (  # noqa: F401 — registra todos los modelos en Base.metadata
@@ -47,6 +47,8 @@ app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(roles.router, prefix=settings.API_V1_PREFIX)
 app.include_router(users.router, prefix=settings.API_V1_PREFIX)
 app.include_router(alumnos.router, prefix=settings.API_V1_PREFIX)
+app.include_router(maestros.router, prefix=settings.API_V1_PREFIX)
+app.include_router(asistencias.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/")
