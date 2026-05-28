@@ -16,6 +16,10 @@ class TipoMembresia(Base):
     descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     costo_base: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     duracion_dias: Mapped[int] = mapped_column(Integer, nullable=False)
+    dias_incluidos: Mapped[str] = mapped_column(String(20), nullable=False)
+    dias_por_semana: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    horas_por_clase: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    nivel_competitivo: Mapped[bool] = mapped_column(Boolean, default=False)
     color: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -37,11 +41,13 @@ class Membresia(Base):
         BigInteger, ForeignKey("tipos_membresia.id"), nullable=False
     )
     costo_real: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    porcentaje_beca: Mapped[int] = mapped_column(Integer, default=0)
     fecha_inicio: Mapped[date] = mapped_column(Date, nullable=False)
     fecha_vencimiento: Mapped[date] = mapped_column(Date, nullable=False)
     estado_id: Mapped[int] = mapped_column(
         SmallInteger, ForeignKey("estados_membresia.id"), nullable=False, default=1
     )
+    pagado: Mapped[bool] = mapped_column(Boolean, default=True)
     notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.current_timestamp()

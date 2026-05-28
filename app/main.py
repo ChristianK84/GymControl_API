@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import alumnos, asistencias, auth, health, maestros, roles, users
+from app.api.routes import alumnos, asistencias, auth, estados_membresia, health, maestros, membresias, roles, tipos_membresia, transacciones, users
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.models import (  # noqa: F401 — registra todos los modelos en Base.metadata
@@ -53,6 +53,10 @@ app.include_router(users.router, prefix=settings.API_V1_PREFIX)
 app.include_router(alumnos.router, prefix=settings.API_V1_PREFIX)
 app.include_router(maestros.router, prefix=settings.API_V1_PREFIX)
 app.include_router(asistencias.router, prefix=settings.API_V1_PREFIX)
+app.include_router(estados_membresia.router, prefix=settings.API_V1_PREFIX)
+app.include_router(tipos_membresia.router, prefix=settings.API_V1_PREFIX)
+app.include_router(membresias.router, prefix=settings.API_V1_PREFIX)
+app.include_router(transacciones.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -46,6 +46,7 @@ class AsistenciaResponse(BaseModel):
     notas: Optional[str]
     registrado_por: Optional[int]
     created_at: datetime
+    alerta_impago: Optional[str] = None
     alumno: Optional[AsistenciaAlumnoInfo] = None
     maestro: Optional[AsistenciaMaestroInfo] = None
 
