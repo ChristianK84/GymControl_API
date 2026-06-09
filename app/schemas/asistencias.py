@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -11,6 +12,8 @@ class AsistenciaCreate(BaseModel):
     asistio: bool
     notas: Optional[str] = None
     registrado_por: Optional[int] = None
+    es_dia_extra: bool = False
+    costo_extra: Decimal = Decimal("0")
 
 
 class AsistenciaUpdate(BaseModel):
@@ -45,6 +48,8 @@ class AsistenciaResponse(BaseModel):
     asistio: bool
     notas: Optional[str]
     registrado_por: Optional[int]
+    es_dia_extra: bool
+    costo_extra: Decimal
     created_at: datetime
     alerta_impago: Optional[str] = None
     alumno: Optional[AsistenciaAlumnoInfo] = None

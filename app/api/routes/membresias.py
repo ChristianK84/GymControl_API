@@ -96,6 +96,21 @@ def list_membresias(
     return q.order_by(Membresia.fecha_vencimiento.desc()).all()
 
 
+@router.get("/impagas", response_model=list[MembresiaResponse])
+def list_membresias_impagas(db: Session = Depends(get_db)):
+    _actualizar_estados_vencidos(db)
+
+    return (
+        _membresia_base_query(db)
+        .filter(
+            Membresia.estado_id.in_([ACTIVA, PENDIENTE]),
+            Membresia.pagado == False,
+        )
+        .order_by(Membresia.fecha_vencimiento.asc())
+        .all()
+    )
+
+
 @router.get("/{membresia_id}", response_model=MembresiaResponse)
 def get_membresia(membresia_id: int, db: Session = Depends(get_db)):
     _actualizar_estados_vencidos(db)

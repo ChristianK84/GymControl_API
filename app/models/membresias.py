@@ -21,6 +21,9 @@ class TipoMembresia(Base):
     horas_por_clase: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     nivel_competitivo: Mapped[bool] = mapped_column(Boolean, default=False)
     color: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    permite_dias_extra: Mapped[bool] = mapped_column(Boolean, default=False)
+    costo_dia_extra: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2), nullable=True)
+    bloquear_impago: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(

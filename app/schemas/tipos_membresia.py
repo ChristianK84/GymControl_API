@@ -15,6 +15,9 @@ class TipoMembresiaCreate(BaseModel):
     horas_por_clase: Optional[int] = None
     nivel_competitivo: bool = False
     color: Optional[str] = None
+    permite_dias_extra: bool = False
+    costo_dia_extra: Optional[Decimal] = None
+    bloquear_impago: bool = False
 
 
 class TipoMembresiaUpdate(BaseModel):
@@ -28,6 +31,9 @@ class TipoMembresiaUpdate(BaseModel):
     nivel_competitivo: Optional[bool] = None
     color: Optional[str] = None
     is_active: Optional[bool] = None
+    permite_dias_extra: Optional[bool] = None
+    costo_dia_extra: Optional[Decimal] = None
+    bloquear_impago: Optional[bool] = None
 
 
 class TipoMembresiaResponse(BaseModel):
@@ -41,6 +47,9 @@ class TipoMembresiaResponse(BaseModel):
     horas_por_clase: Optional[int]
     nivel_competitivo: bool
     color: Optional[str]
+    permite_dias_extra: bool
+    costo_dia_extra: Optional[Decimal]
+    bloquear_impago: bool
     is_active: bool
     is_deleted: bool
     created_at: datetime
