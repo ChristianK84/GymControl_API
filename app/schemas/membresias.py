@@ -37,6 +37,7 @@ class MembresiaAlumnoInfo(BaseModel):
     apellido_paterno: str
     apellido_materno: Optional[str]
     rama: str
+    fotografia: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
