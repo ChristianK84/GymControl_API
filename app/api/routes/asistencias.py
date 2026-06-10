@@ -11,6 +11,8 @@ from app.models import Alumno, Asistencia, Membresia, TipoMembresia
 from app.schemas.asistencias import (
     AsistenciaCreate,
     AsistenciaResponse,
+    AsistenciaScanRequest,
+    AsistenciaScanResponse,
     AsistenciaUpdate,
 )
 
@@ -107,6 +109,97 @@ def _enriquecer_impago(asistencia, db: Session):
     else:
         asistencia.alerta_impago = None
     return asistencia
+
+
+_DIA_NOMBRES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+
+
+@router.post("/scan", response_model=AsistenciaScanResponse)
+def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
+    alumno = db.query(Alumno).filter(
+        Alumno.id == payload.alumno_id, Alumno.is_deleted == False, Alumno.is_active == True
+    ).first()
+    if not alumno:
+        return AsistenciaScanResponse(
+            permitido=False, motivo="alumno_inactivo",
+            mensaje="Alumno no encontrado o inactivo.",
+        )
+
+    membresia = _membresia_activa(payload.alumno_id, db)
+    if not membresia or not membresia.tipo_membresia:
+        return AsistenciaScanResponse(
+            permitido=False, motivo="sin_membresia",
+            mensaje="El alumno no tiene una membresía activa o pendiente.",
+        )
+
+    tipo = membresia.tipo_membresia
+    hoy = date.today()
+    dia_nombre = _DIA_NOMBRES[hoy.weekday()]
+
+    dia_permitido = _validar_dia_permitido(hoy, tipo.dias_incluidos)
+
+    if not dia_permitido:
+        if tipo.permite_dias_extra and tipo.costo_dia_extra is not None:
+            return AsistenciaScanResponse(
+                permitido=True, motivo="fuera_de_plan",
+                mensaje=f"Hoy ({dia_nombre}) no está incluido en tu plan '{tipo.nombre}'. "
+                        f"Puedes ingresar pagando un extra de ${tipo.costo_dia_extra:,.2f}.",
+                costo_extra=tipo.costo_dia_extra,
+            )
+        else:
+            return AsistenciaScanResponse(
+                permitido=False, motivo="dia_no_permitido",
+                mensaje=f"Hoy ({dia_nombre}) no está incluido en el plan '{tipo.nombre}' "
+                        f"({tipo.dias_incluidos}).",
+            )
+
+    if not membresia.pagado:
+        if tipo.bloquear_impago:
+            return AsistenciaScanResponse(
+                permitido=False, motivo="impago_bloqueado",
+                mensaje=f"Acceso denegado. La membresía '{tipo.nombre}' tiene un pago pendiente de "
+                        f"${membresia.costo_real:,.2f}.",
+            )
+        impago = True
+    else:
+        impago = False
+
+    now = datetime.now()
+    existing = db.query(Asistencia).filter(
+        Asistencia.alumno_id == payload.alumno_id,
+        Asistencia.fecha >= now.replace(hour=0, minute=0, second=0, microsecond=0),
+    ).first()
+
+    asistencia = Asistencia(
+        alumno_id=payload.alumno_id,
+        maestro_id=payload.maestro_id,
+        fecha=now,
+        asistio=True,
+        es_dia_extra=False,
+        costo_extra=Decimal("0"),
+    )
+    if impago:
+        asistencia.notas = f"Asistencia registrada con alerta de impago: membresía '{tipo.nombre}' pendiente."
+
+    db.add(asistencia)
+    db.commit()
+
+    result = _asistencia_base_query(db).filter(Asistencia.id == asistencia.id).first()
+    result = _enriquecer_impago(result, db)
+
+    if impago:
+        return AsistenciaScanResponse(
+            permitido=True, motivo="impago_alerta",
+            mensaje=f"Membresía '{tipo.nombre}' pendiente de pago (${membresia.costo_real:,.2f}). "
+                    f"Asistencia registrada con alerta.",
+            asistencia=result,
+        )
+
+    return AsistenciaScanResponse(
+        permitido=True, motivo="ok",
+        mensaje=f"Asistencia registrada — {alumno.nombrecompleto} {alumno.apellido_paterno}.",
+        asistencia=result,
+    )
 
 
 @router.post("/", response_model=AsistenciaResponse, status_code=201)

@@ -3,6 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.dependencies import require_maestro
 from app.core.database import get_db
 from app.models import Alumno, Membresia, TipoMembresia
 from app.schemas.membresias import (
@@ -42,7 +43,7 @@ def _actualizar_estados_vencidos(db: Session):
 
 
 @router.post("/", response_model=MembresiaResponse, status_code=201)
-def create_membresia(payload: MembresiaCreate, db: Session = Depends(get_db)):
+def create_membresia(payload: MembresiaCreate, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     alumno = db.query(Alumno).filter(
         Alumno.id == payload.alumno_id, Alumno.is_deleted == False
     ).first()
@@ -81,6 +82,7 @@ def list_membresias(
     pagado: bool = Query(None),
     vencidas: bool = Query(False),
     db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
 ):
     _actualizar_estados_vencidos(db)
 
@@ -97,7 +99,7 @@ def list_membresias(
 
 
 @router.get("/impagas", response_model=list[MembresiaResponse])
-def list_membresias_impagas(db: Session = Depends(get_db)):
+def list_membresias_impagas(db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     _actualizar_estados_vencidos(db)
 
     return (
@@ -112,7 +114,7 @@ def list_membresias_impagas(db: Session = Depends(get_db)):
 
 
 @router.get("/{membresia_id}", response_model=MembresiaResponse)
-def get_membresia(membresia_id: int, db: Session = Depends(get_db)):
+def get_membresia(membresia_id: int, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     _actualizar_estados_vencidos(db)
 
     membresia = _membresia_base_query(db).filter(Membresia.id == membresia_id).first()
@@ -122,7 +124,7 @@ def get_membresia(membresia_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{membresia_id}", response_model=MembresiaResponse)
-def update_membresia(membresia_id: int, payload: MembresiaUpdate, db: Session = Depends(get_db)):
+def update_membresia(membresia_id: int, payload: MembresiaUpdate, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     membresia = _membresia_base_query(db).filter(Membresia.id == membresia_id).first()
     if not membresia:
         raise HTTPException(status_code=404, detail="Membresia no encontrada")
@@ -137,7 +139,7 @@ def update_membresia(membresia_id: int, payload: MembresiaUpdate, db: Session = 
 
 
 @router.delete("/{membresia_id}", status_code=204)
-def cancelar_membresia(membresia_id: int, db: Session = Depends(get_db)):
+def cancelar_membresia(membresia_id: int, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
     membresia = db.query(Membresia).filter(Membresia.id == membresia_id).first()
     if not membresia:
         raise HTTPException(status_code=404, detail="Membresia no encontrada")

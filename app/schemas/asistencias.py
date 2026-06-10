@@ -56,3 +56,16 @@ class AsistenciaResponse(BaseModel):
     maestro: Optional[AsistenciaMaestroInfo] = None
 
     model_config = {"from_attributes": True}
+
+
+class AsistenciaScanRequest(BaseModel):
+    alumno_id: int
+    maestro_id: int
+
+
+class AsistenciaScanResponse(BaseModel):
+    permitido: bool
+    motivo: str
+    mensaje: str
+    costo_extra: Optional[Decimal] = None
+    asistencia: Optional[AsistenciaResponse] = None

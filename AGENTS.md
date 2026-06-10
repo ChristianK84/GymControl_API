@@ -36,6 +36,7 @@ app/
 
 ## Auth & roles
 - **Login**: `POST /api/v1/auth/login` → returns JWT (`sub`=user_id string)
+- **QR Scan**: `POST /api/v1/asistencias/scan` → `{alumno_id, maestro_id}` → validación completa de membresía + registro automático
 - **Protect**: `Depends(get_current_user)` / `Depends(require_admin)` / `Depends(require_maestro)`
 - role_id=1 → admin (everything), role_id=2 → maestro (limited)
 

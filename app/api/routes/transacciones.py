@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.dependencies import require_admin
 from app.core.database import get_db
 from app.models import Transaccion
 from app.schemas.transacciones import (
@@ -24,7 +25,7 @@ def _transaccion_base_query(db: Session):
 
 
 @router.post("/", response_model=TransaccionResponse, status_code=201)
-def create_transaccion(payload: TransaccionCreate, db: Session = Depends(get_db)):
+def create_transaccion(payload: TransaccionCreate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     if payload.tipo_transaccion not in (INGRESO, GASTO):
         raise HTTPException(status_code=400, detail="tipo_transaccion debe ser 1 (ingreso) o 2 (gasto)")
 
@@ -42,6 +43,7 @@ def list_transacciones(
     fecha_desde: date = Query(None),
     fecha_hasta: date = Query(None),
     db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
 ):
     q = _transaccion_base_query(db)
     if tipo_transaccion:
@@ -58,7 +60,7 @@ def list_transacciones(
 
 
 @router.get("/{transaccion_id}", response_model=TransaccionResponse)
-def get_transaccion(transaccion_id: int, db: Session = Depends(get_db)):
+def get_transaccion(transaccion_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     t = _transaccion_base_query(db).filter(Transaccion.id == transaccion_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Transaccion no encontrada")
@@ -66,7 +68,7 @@ def get_transaccion(transaccion_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{transaccion_id}", response_model=TransaccionResponse)
-def update_transaccion(transaccion_id: int, payload: TransaccionUpdate, db: Session = Depends(get_db)):
+def update_transaccion(transaccion_id: int, payload: TransaccionUpdate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     t = db.query(Transaccion).filter(Transaccion.id == transaccion_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Transaccion no encontrada")
@@ -81,7 +83,7 @@ def update_transaccion(transaccion_id: int, payload: TransaccionUpdate, db: Sess
 
 
 @router.delete("/{transaccion_id}", status_code=204)
-def delete_transaccion(transaccion_id: int, db: Session = Depends(get_db)):
+def delete_transaccion(transaccion_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     t = db.query(Transaccion).filter(Transaccion.id == transaccion_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Transaccion no encontrada")
@@ -94,6 +96,7 @@ def delete_transaccion(transaccion_id: int, db: Session = Depends(get_db)):
 def profit_mensual(
     anio: int = Query(..., description="Año a consultar, ej. 2026"),
     db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
 ):
     rows = (
         db.query(

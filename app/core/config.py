@@ -5,8 +5,8 @@ class Settings(BaseSettings):
     APP_NAME: str = "GymControl API"
     DEBUG: bool = True
     API_V1_PREFIX: str = "/api/v1"
-    DATABASE_URL: str = "postgresql://postgres.ksyxiqwbkembvxjmxygu:KatirasGym2026@aws-1-us-west-2.pooler.supabase.com:6543/postgres"
-    SECRET_KEY: str = "change-me-in-production-use-a-random-string"
+    DATABASE_URL: str = ""
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
