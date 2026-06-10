@@ -18,7 +18,6 @@ router = APIRouter(prefix="/membresias", tags=["membresias"])
 ACTIVA = 1
 VENCIDA = 2
 CANCELADA = 3
-PENDIENTE = 4
 
 
 def _membresia_base_query(db: Session):
@@ -30,11 +29,11 @@ def _membresia_base_query(db: Session):
 
 
 def _actualizar_estados_vencidos(db: Session):
-    """Actualiza a Vencida las membresias cuya fecha ya paso y aun estan Activa/Pendiente."""
+    """Actualiza a Vencida las membresias cuya fecha ya paso y aun estan Activa."""
     hoy = date.today()
     vencidas = db.query(Membresia).filter(
         Membresia.fecha_vencimiento < hoy,
-        Membresia.estado_id.in_([ACTIVA, PENDIENTE]),
+        Membresia.estado_id == ACTIVA,
     ).all()
     for m in vencidas:
         m.estado_id = VENCIDA
@@ -56,9 +55,6 @@ def create_membresia(payload: MembresiaCreate, db: Session = Depends(get_db), _m
     if not tipo:
         raise HTTPException(status_code=400, detail="Tipo de membresia no encontrado")
 
-    # Determinar estado inicial segun pago
-    estado_inicial = ACTIVA if payload.pagado else PENDIENTE
-
     membresia = Membresia(
         alumno_id=payload.alumno_id,
         tipo_membresia_id=payload.tipo_membresia_id,
@@ -66,7 +62,7 @@ def create_membresia(payload: MembresiaCreate, db: Session = Depends(get_db), _m
         porcentaje_beca=payload.porcentaje_beca,
         fecha_inicio=payload.fecha_inicio,
         fecha_vencimiento=payload.fecha_vencimiento,
-        estado_id=estado_inicial,
+        estado_id=ACTIVA,
         pagado=payload.pagado,
         notas=payload.notas,
     )
@@ -105,7 +101,7 @@ def list_membresias_impagas(db: Session = Depends(get_db), _maestro=Depends(requ
     return (
         _membresia_base_query(db)
         .filter(
-            Membresia.estado_id.in_([ACTIVA, PENDIENTE]),
+            Membresia.estado_id == ACTIVA,
             Membresia.pagado == False,
         )
         .order_by(Membresia.fecha_vencimiento.asc())

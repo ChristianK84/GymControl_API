@@ -139,19 +139,14 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
     dia_permitido = _validar_dia_permitido(hoy, tipo.dias_incluidos)
 
     if not dia_permitido:
-        if tipo.permite_dias_extra and tipo.costo_dia_extra is not None:
-            return AsistenciaScanResponse(
-                permitido=True, motivo="fuera_de_plan",
-                mensaje=f"Hoy ({dia_nombre}) no está incluido en tu plan '{tipo.nombre}'. "
-                        f"Puedes ingresar pagando un extra de ${tipo.costo_dia_extra:,.2f}.",
-                costo_extra=tipo.costo_dia_extra,
-            )
-        else:
-            return AsistenciaScanResponse(
-                permitido=False, motivo="dia_no_permitido",
-                mensaje=f"Hoy ({dia_nombre}) no está incluido en el plan '{tipo.nombre}' "
-                        f"({tipo.dias_incluidos}).",
-            )
+        costo = tipo.costo_dia_extra if tipo.costo_dia_extra is not None else Decimal("0")
+        return AsistenciaScanResponse(
+            permitido=True, motivo="fuera_de_plan",
+            mensaje=f"Hoy ({dia_nombre}) no está incluido en el plan '{tipo.nombre}' "
+                    f"({tipo.dias_incluidos})." +
+                    (f" Costo extra: ${costo:,.2f}." if costo > 0 else ""),
+            costo_extra=costo if costo > 0 else None,
+        )
 
     if not membresia.pagado:
         if tipo.bloquear_impago:
