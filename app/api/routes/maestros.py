@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_user, require_admin
 from app.core.database import get_db
+from app.core.security import hash_password
 from app.models import Maestro, User
 from app.schemas.maestros import (
     MaestroCreate,
@@ -17,17 +18,52 @@ def _maestro_base_query(db: Session):
     return db.query(Maestro).options(joinedload(Maestro.user))
 
 
+def _generar_username(nombre: str, apellido_paterno: str) -> str:
+    return nombre[0].upper() + apellido_paterno[0].upper() + apellido_paterno[1:].lower()
+
+
+def _crear_usuario_maestro(nombre: str, apellido_paterno: str, fecha_nacimiento, db: Session) -> User:
+    base_username = _generar_username(nombre, apellido_paterno)
+    username = base_username
+    counter = 1
+    while db.query(User).filter(User.username == username).first():
+        username = f"{base_username}{counter}"
+        counter += 1
+
+    year_suffix = str(fecha_nacimiento.year)[-2:]
+    password = username + year_suffix
+
+    user = User(
+        username=username,
+        password_hash=hash_password(password),
+        full_name=f"{nombre} {apellido_paterno}",
+        role_id=2,
+    )
+    db.add(user)
+    db.flush()
+    return user
+
+
 @router.post("/", response_model=MaestroResponse, status_code=201)
 def create_maestro(payload: MaestroCreate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
-    if payload.user_id is not None:
-        existing = db.query(Maestro).filter(Maestro.user_id == payload.user_id).first()
+    user_id = payload.user_id
+
+    if user_id is not None:
+        existing = db.query(Maestro).filter(Maestro.user_id == user_id).first()
         if existing:
             raise HTTPException(status_code=400, detail="Ya existe un maestro con ese user_id")
-        user = db.query(User).filter(User.id == payload.user_id, User.is_deleted == False).first()
+        user = db.query(User).filter(User.id == user_id, User.is_deleted == False).first()
         if not user:
             raise HTTPException(status_code=400, detail="El usuario no existe")
+    elif payload.fecha_nacimiento is not None:
+        user = _crear_usuario_maestro(
+            payload.nombre, payload.apellido_paterno, payload.fecha_nacimiento, db
+        )
+        user_id = user.id
 
-    maestro = Maestro(**payload.model_dump())
+    data = payload.model_dump()
+    data["user_id"] = user_id
+    maestro = Maestro(**data)
     db.add(maestro)
     db.commit()
     return _maestro_base_query(db).filter(Maestro.id == maestro.id).first()
