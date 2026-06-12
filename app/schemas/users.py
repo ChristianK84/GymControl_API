@@ -29,6 +29,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     role_id: Optional[int] = None
     is_active: Optional[bool] = None
+    failed_login_attempts: Optional[int] = None
     locked_until: Optional[datetime] = None
 
     @field_validator("password")

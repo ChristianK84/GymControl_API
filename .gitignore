@@ -2,3 +2,4 @@ FRONTEND_AUTH_GUIDE.md
 *.py
 *.sql
 .env
+scripts/__pycache__/import_alumnos.cpython-314.pyc
