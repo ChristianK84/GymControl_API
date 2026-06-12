@@ -1,3 +1,4 @@
 FRONTEND_AUTH_GUIDE.md
 *.py
 *.sql
+.env

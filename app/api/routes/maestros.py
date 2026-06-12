@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
@@ -30,8 +32,7 @@ def _crear_usuario_maestro(nombre: str, apellido_paterno: str, fecha_nacimiento,
         username = f"{base_username}{counter}"
         counter += 1
 
-    year_suffix = str(fecha_nacimiento.year)[-2:]
-    password = username + year_suffix
+    password = secrets.token_urlsafe(8)
 
     user = User(
         username=username,

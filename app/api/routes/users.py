@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import secrets
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_admin
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.models import User
-from app.schemas.users import UserCreate, UserResponse, UserUpdate
+from app.schemas.users import PasswordResetResponse, UserCreate, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -72,6 +74,19 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.post("/{user_id}/reset-password", response_model=PasswordResetResponse)
+def reset_password(user_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    new_password = secrets.token_urlsafe(8)
+    user.password_hash = hash_password(new_password)
+    db.commit()
+
+    return PasswordResetResponse(new_password=new_password)
 
 
 @router.delete("/{user_id}", status_code=204)

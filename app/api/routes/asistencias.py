@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import require_maestro
 from app.core.database import get_db
-from app.models import Alumno, Asistencia, Membresia, TipoMembresia
+from app.models import Alumno, Asistencia, Maestro, Membresia, TipoMembresia
 from app.schemas.asistencias import (
     AsistenciaCreate,
     AsistenciaResponse,
@@ -115,7 +115,7 @@ _DIA_NOMBRES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado",
 
 
 @router.post("/scan", response_model=AsistenciaScanResponse)
-def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
+def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db), current_user=Depends(require_maestro)):
     alumno = db.query(Alumno).filter(
         Alumno.id == payload.alumno_id, Alumno.is_deleted == False, Alumno.is_active == True
     ).first()
@@ -123,6 +123,29 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
         return AsistenciaScanResponse(
             permitido=False, motivo="alumno_inactivo",
             mensaje="Alumno no encontrado o inactivo.",
+        )
+
+    if current_user.role_id == 2:
+        maestro = db.query(Maestro).filter(
+            Maestro.user_id == current_user.id,
+            Maestro.is_deleted == False,
+            Maestro.is_active == True,
+        ).first()
+        if not maestro:
+            return AsistenciaScanResponse(
+                permitido=False, motivo="maestro_invalido",
+                mensaje="Tu cuenta de usuario no esta vinculada a ningun maestro.",
+            )
+        if payload.maestro_id != maestro.id:
+            return AsistenciaScanResponse(
+                permitido=False, motivo="maestro_no_autorizado",
+                mensaje="No puedes registrar asistencia como otro maestro.",
+            )
+
+    if alumno.maestro_id != payload.maestro_id:
+        return AsistenciaScanResponse(
+            permitido=False, motivo="alumno_no_asignado",
+            mensaje="Este alumno no esta asignado al maestro seleccionado.",
         )
 
     membresia = _membresia_activa(payload.alumno_id, db)
@@ -172,6 +195,7 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
         asistio=True,
         es_dia_extra=False,
         costo_extra=Decimal("0"),
+        registrado_por=current_user.id,
     )
     if impago:
         asistencia.notas = f"Asistencia registrada con alerta de impago: membresía '{tipo.nombre}' pendiente."
