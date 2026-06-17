@@ -73,12 +73,15 @@ def create_maestro(payload: MaestroCreate, db: Session = Depends(get_db), _admin
 @router.get("/", response_model=list[MaestroResponse])
 def list_maestros(
     include_deleted: bool = Query(False),
+    include_inactive: bool = Query(False),
     db: Session = Depends(get_db),
     _user=Depends(get_current_user),
 ):
     q = _maestro_base_query(db)
     if not include_deleted:
         q = q.filter(Maestro.is_deleted == False)
+    if not include_inactive:
+        q = q.filter(Maestro.is_active == True)
     return q.order_by(Maestro.id).all()
 
 
