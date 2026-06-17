@@ -13,3 +13,4 @@ class TokenResponse(BaseModel):
     username: str
     full_name: str | None
     role_id: int
+    maestro_id: int | None = None

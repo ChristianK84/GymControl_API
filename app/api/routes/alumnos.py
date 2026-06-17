@@ -50,12 +50,15 @@ def create_alumno(payload: AlumnoCreate, db: Session = Depends(get_db), _maestro
 @router.get("/", response_model=list[AlumnoResponse])
 def list_alumnos(
     include_deleted: bool = Query(False),
+    maestro_id: int = Query(None),
     db: Session = Depends(get_db),
     _user=Depends(get_current_user),
 ):
     q = _alumno_base_query(db)
     if not include_deleted:
         q = q.filter(Alumno.is_deleted == False)
+    if maestro_id:
+        q = q.filter(Alumno.maestro_id == maestro_id)
     return q.order_by(Alumno.id).all()
 
 

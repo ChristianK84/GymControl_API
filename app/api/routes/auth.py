@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import create_access_token, verify_password
-from app.models import User
+from app.models import Maestro, User
 from app.schemas.auth import LoginRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -42,10 +42,21 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
     token = create_access_token({"sub": str(user.id)})
 
+    maestro_id = None
+    if user.role_id == 2:
+        maestro = db.query(Maestro).filter(
+            Maestro.user_id == user.id,
+            Maestro.is_deleted == False,
+            Maestro.is_active == True,
+        ).first()
+        if maestro:
+            maestro_id = maestro.id
+
     return TokenResponse(
         access_token=token,
         user_id=user.id,
         username=user.username,
         full_name=user.full_name,
         role_id=user.role_id,
+        maestro_id=maestro_id,
     )
