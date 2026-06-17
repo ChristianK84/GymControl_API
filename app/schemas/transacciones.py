@@ -6,26 +6,26 @@ from pydantic import BaseModel, Field
 
 
 class TransaccionCreate(BaseModel):
-    tipo_transaccion: int = Field(description="1=ingreso, 2=gasto")
+    tipo_transaccion: int = Field(ge=1, le=2, description="1=ingreso, 2=gasto")
     categoria: str = Field(max_length=100)
-    subcategoria: Optional[str] = None
-    descripcion: Optional[str] = None
-    monto: Decimal
+    subcategoria: Optional[str] = Field(default=None, max_length=100)
+    descripcion: Optional[str] = Field(default=None, max_length=500)
+    monto: Decimal = Field(max_digits=10, decimal_places=2)
     fecha: date
-    membresia_id: Optional[int] = None
-    alumno_id: Optional[int] = None
-    registrado_por: Optional[int] = None
+    membresia_id: Optional[int] = Field(default=None, gt=0)
+    alumno_id: Optional[int] = Field(default=None, gt=0)
+    registrado_por: Optional[int] = Field(default=None, gt=0)
 
 
 class TransaccionUpdate(BaseModel):
-    tipo_transaccion: Optional[int] = None
-    categoria: Optional[str] = None
-    subcategoria: Optional[str] = None
-    descripcion: Optional[str] = None
-    monto: Optional[Decimal] = None
+    tipo_transaccion: Optional[int] = Field(default=None, ge=1, le=2)
+    categoria: Optional[str] = Field(default=None, max_length=100)
+    subcategoria: Optional[str] = Field(default=None, max_length=100)
+    descripcion: Optional[str] = Field(default=None, max_length=500)
+    monto: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
     fecha: Optional[date] = None
-    membresia_id: Optional[int] = None
-    alumno_id: Optional[int] = None
+    membresia_id: Optional[int] = Field(default=None, gt=0)
+    alumno_id: Optional[int] = Field(default=None, gt=0)
 
 
 class TransaccionAlumnoInfo(BaseModel):

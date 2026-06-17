@@ -29,8 +29,6 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     role_id: Optional[int] = None
     is_active: Optional[bool] = None
-    failed_login_attempts: Optional[int] = None
-    locked_until: Optional[datetime] = None
 
     @field_validator("password")
     @classmethod
@@ -47,8 +45,6 @@ class UserResponse(BaseModel):
     role_id: int
     is_active: bool
     is_deleted: bool
-    failed_login_attempts: int = 0
-    locked_until: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
@@ -57,3 +53,4 @@ class UserResponse(BaseModel):
 
 class PasswordResetResponse(BaseModel):
     new_password: str
+    message: str = "Contraseña restablecida exitosamente"

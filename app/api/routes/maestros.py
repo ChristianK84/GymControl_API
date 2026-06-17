@@ -3,7 +3,7 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.dependencies import get_current_user, require_admin
+from app.api.dependencies import get_current_maestro, get_current_user, require_admin
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.models import Maestro, User
@@ -76,17 +76,28 @@ def list_maestros(
     include_inactive: bool = Query(False),
     db: Session = Depends(get_db),
     _user=Depends(get_current_user),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
 ):
     q = _maestro_base_query(db)
-    if not include_deleted:
-        q = q.filter(Maestro.is_deleted == False)
-    if not include_inactive:
-        q = q.filter(Maestro.is_active == True)
+    if current_maestro:
+        q = q.filter(Maestro.id == current_maestro.id)
+    else:
+        if not include_deleted:
+            q = q.filter(Maestro.is_deleted == False)
+        if not include_inactive:
+            q = q.filter(Maestro.is_active == True)
     return q.order_by(Maestro.id).all()
 
 
 @router.get("/{maestro_id}", response_model=MaestroResponse)
-def get_maestro(maestro_id: int, db: Session = Depends(get_db), _user=Depends(get_current_user)):
+def get_maestro(
+    maestro_id: int,
+    db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
+    if current_maestro and maestro_id != current_maestro.id:
+        raise HTTPException(status_code=403, detail="No autorizado")
     maestro = _maestro_base_query(db).filter(Maestro.id == maestro_id).first()
     if not maestro:
         raise HTTPException(status_code=404, detail="Maestro no encontrado")

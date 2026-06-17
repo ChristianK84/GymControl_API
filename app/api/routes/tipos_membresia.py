@@ -39,7 +39,7 @@ def list_tipos(
 
 @router.get("/{tipo_id}", response_model=TipoMembresiaResponse)
 def get_tipo(tipo_id: int, db: Session = Depends(get_db), _current=Depends(get_current_user)):
-    tipo = db.query(TipoMembresia).filter(TipoMembresia.id == tipo_id).first()
+    tipo = db.query(TipoMembresia).filter(TipoMembresia.id == tipo_id, TipoMembresia.is_deleted == False).first()
     if not tipo:
         raise HTTPException(status_code=404, detail="Tipo de membresia no encontrado")
     return tipo
@@ -47,7 +47,7 @@ def get_tipo(tipo_id: int, db: Session = Depends(get_db), _current=Depends(get_c
 
 @router.put("/{tipo_id}", response_model=TipoMembresiaResponse)
 def update_tipo(tipo_id: int, payload: TipoMembresiaUpdate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
-    tipo = db.query(TipoMembresia).filter(TipoMembresia.id == tipo_id).first()
+    tipo = db.query(TipoMembresia).filter(TipoMembresia.id == tipo_id, TipoMembresia.is_deleted == False).first()
     if not tipo:
         raise HTTPException(status_code=404, detail="Tipo de membresia no encontrado")
 
@@ -62,7 +62,7 @@ def update_tipo(tipo_id: int, payload: TipoMembresiaUpdate, db: Session = Depend
 
 @router.delete("/{tipo_id}", status_code=204)
 def delete_tipo(tipo_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
-    tipo = db.query(TipoMembresia).filter(TipoMembresia.id == tipo_id).first()
+    tipo = db.query(TipoMembresia).filter(TipoMembresia.id == tipo_id, TipoMembresia.is_deleted == False).first()
     if not tipo:
         raise HTTPException(status_code=404, detail="Tipo de membresia no encontrado")
 

@@ -4,10 +4,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 from app.api.routes import alumnos, asistencias, auth, estados_membresia, health, maestros, membresias, roles, tipos_membresia, transacciones, users
+from sqlalchemy import text
+
 from app.core.config import settings
 from app.core.database import Base, engine
+from app.core.limiter import limiter
 from app.models import (  # noqa: F401 — registra todos los modelos en Base.metadata
     Alumno,
     Asistencia,
@@ -24,9 +31,25 @@ from app.models import (  # noqa: F401 — registra todos los modelos en Base.me
 )
 
 
+_INDICES = [
+    "CREATE INDEX IF NOT EXISTS idx_membresias_fecha_vencimiento ON membresias(fecha_vencimiento)",
+    "CREATE INDEX IF NOT EXISTS idx_membresias_alumno_id ON membresias(alumno_id)",
+    "CREATE INDEX IF NOT EXISTS idx_transacciones_fecha ON transacciones(fecha)",
+    "CREATE INDEX IF NOT EXISTS idx_asistencias_maestro_id ON asistencias(maestro_id)",
+    "CREATE INDEX IF NOT EXISTS idx_alumnos_maestro_id ON alumnos(maestro_id)",
+]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    try:
+        with engine.connect() as conn:
+            for stmt in _INDICES:
+                conn.execute(text(stmt))
+            conn.commit()
+    except Exception:
+        pass
     yield
 
 
@@ -35,6 +58,11 @@ app = FastAPI(
     debug=settings.DEBUG,
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

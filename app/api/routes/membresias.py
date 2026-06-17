@@ -3,9 +3,9 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.dependencies import require_maestro
+from app.api.dependencies import get_current_maestro, require_maestro
 from app.core.database import get_db
-from app.models import Alumno, Membresia, TipoMembresia
+from app.models import Alumno, Maestro, Membresia, TipoMembresia
 from app.schemas.membresias import (
     MembresiaCreate,
     MembresiaResponse,
@@ -42,12 +42,19 @@ def _actualizar_estados_vencidos(db: Session):
 
 
 @router.post("/", response_model=MembresiaResponse, status_code=201)
-def create_membresia(payload: MembresiaCreate, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
+def create_membresia(
+    payload: MembresiaCreate,
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
     alumno = db.query(Alumno).filter(
         Alumno.id == payload.alumno_id, Alumno.is_deleted == False
     ).first()
     if not alumno:
         raise HTTPException(status_code=400, detail="Alumno no encontrado o inactivo")
+    if current_maestro and alumno.maestro_id != current_maestro.id:
+        raise HTTPException(status_code=403, detail="No autorizado para este alumno")
 
     tipo = db.query(TipoMembresia).filter(
         TipoMembresia.id == payload.tipo_membresia_id, TipoMembresia.is_deleted == False
@@ -79,10 +86,13 @@ def list_membresias(
     vencidas: bool = Query(False),
     db: Session = Depends(get_db),
     _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
 ):
     _actualizar_estados_vencidos(db)
 
     q = _membresia_base_query(db)
+    if current_maestro:
+        q = q.join(Alumno, Membresia.alumno_id == Alumno.id).filter(Alumno.maestro_id == current_maestro.id)
     if alumno_id:
         q = q.filter(Membresia.alumno_id == alumno_id)
     if estado_id:
@@ -95,35 +105,57 @@ def list_membresias(
 
 
 @router.get("/impagas", response_model=list[MembresiaResponse])
-def list_membresias_impagas(db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
+def list_membresias_impagas(
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
     _actualizar_estados_vencidos(db)
 
-    return (
+    q = (
         _membresia_base_query(db)
         .filter(
             Membresia.estado_id == ACTIVA,
             Membresia.pagado == False,
         )
-        .order_by(Membresia.fecha_vencimiento.asc())
-        .all()
     )
+    if current_maestro:
+        q = q.join(Alumno, Membresia.alumno_id == Alumno.id).filter(Alumno.maestro_id == current_maestro.id)
+    return q.order_by(Membresia.fecha_vencimiento.asc()).all()
 
 
-@router.get("/{membresia_id}", response_model=MembresiaResponse)
-def get_membresia(membresia_id: int, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
-    _actualizar_estados_vencidos(db)
-
+def _autorizar_membresia(membresia_id: int, db: Session, current_maestro: Maestro | None):
+    """Obtiene una membresia y verifica que el maestro tenga acceso al alumno."""
     membresia = _membresia_base_query(db).filter(Membresia.id == membresia_id).first()
     if not membresia:
         raise HTTPException(status_code=404, detail="Membresia no encontrada")
+    if current_maestro:
+        alumno = db.query(Alumno).filter(Alumno.id == membresia.alumno_id).first()
+        if not alumno or alumno.maestro_id != current_maestro.id:
+            raise HTTPException(status_code=403, detail="No autorizado para esta membresia")
     return membresia
 
 
+@router.get("/{membresia_id}", response_model=MembresiaResponse)
+def get_membresia(
+    membresia_id: int,
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
+    _actualizar_estados_vencidos(db)
+    return _autorizar_membresia(membresia_id, db, current_maestro)
+
+
 @router.put("/{membresia_id}", response_model=MembresiaResponse)
-def update_membresia(membresia_id: int, payload: MembresiaUpdate, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
-    membresia = _membresia_base_query(db).filter(Membresia.id == membresia_id).first()
-    if not membresia:
-        raise HTTPException(status_code=404, detail="Membresia no encontrada")
+def update_membresia(
+    membresia_id: int,
+    payload: MembresiaUpdate,
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
+    membresia = _autorizar_membresia(membresia_id, db, current_maestro)
 
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -135,10 +167,13 @@ def update_membresia(membresia_id: int, payload: MembresiaUpdate, db: Session = 
 
 
 @router.delete("/{membresia_id}", status_code=204)
-def cancelar_membresia(membresia_id: int, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
-    membresia = db.query(Membresia).filter(Membresia.id == membresia_id).first()
-    if not membresia:
-        raise HTTPException(status_code=404, detail="Membresia no encontrada")
+def cancelar_membresia(
+    membresia_id: int,
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
+    membresia = _autorizar_membresia(membresia_id, db, current_maestro)
 
     membresia.estado_id = CANCELADA
     db.commit()

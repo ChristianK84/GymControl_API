@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 class TutorCreate(BaseModel):
     nombre: str = Field(max_length=100)
     apellido_paterno: str = Field(max_length=100)
-    apellido_materno: Optional[str] = None
+    apellido_materno: Optional[str] = Field(default=None, max_length=100)
     telefono: str = Field(max_length=20)
     email: str = Field(max_length=150)
 
@@ -39,7 +39,7 @@ class TutorResponse(BaseModel):
 class ContactoEmergenciaCreate(BaseModel):
     nombre: str = Field(max_length=100)
     apellido_paterno: str = Field(max_length=100)
-    apellido_materno: Optional[str] = None
+    apellido_materno: Optional[str] = Field(default=None, max_length=100)
     telefono: str = Field(max_length=20)
 
 
@@ -64,11 +64,11 @@ class ContactoEmergenciaResponse(BaseModel):
 # ── Ficha médica ──
 
 class FichaMedicaCreate(BaseModel):
-    tipo_sangre: Optional[str] = None
-    alergias: Optional[str] = None
-    medicamentos: Optional[str] = None
-    condiciones_medicas: Optional[str] = None
-    nss: Optional[str] = None
+    tipo_sangre: Optional[str] = Field(default=None, max_length=10)
+    alergias: Optional[str] = Field(default=None, max_length=500)
+    medicamentos: Optional[str] = Field(default=None, max_length=500)
+    condiciones_medicas: Optional[str] = Field(default=None, max_length=500)
+    nss: Optional[str] = Field(default=None, max_length=50)
 
 
 class FichaMedicaUpdate(BaseModel):
@@ -96,11 +96,11 @@ class FichaMedicaResponse(BaseModel):
 class AlumnoCreate(BaseModel):
     nombrecompleto: str = Field(max_length=150)
     apellido_paterno: str = Field(max_length=100)
-    apellido_materno: Optional[str] = None
+    apellido_materno: Optional[str] = Field(default=None, max_length=100)
     rama: str = Field(max_length=20)
     fecha_nacimiento: date
-    maestro_id: int
-    fotografia: Optional[str] = None
+    maestro_id: int = Field(gt=0)
+    fotografia: Optional[str] = Field(default=None, max_length=255)
     fecha_inscripcion: date
     tutor: TutorCreate
     contacto_emergencia: ContactoEmergenciaCreate

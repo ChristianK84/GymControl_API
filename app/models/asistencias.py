@@ -17,13 +17,13 @@ class Asistencia(Base):
         BigInteger, ForeignKey("alumnos.id", ondelete="CASCADE"), nullable=False
     )
     maestro_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("maestros.id"), nullable=False
+        BigInteger, ForeignKey("maestros.id", ondelete="RESTRICT"), nullable=False
     )
     fecha: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     asistio: Mapped[bool] = mapped_column(Boolean, nullable=False)
     notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     registrado_por: Mapped[Optional[int]] = mapped_column(
-        BigInteger, ForeignKey("users.id"), nullable=True
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     es_dia_extra: Mapped[bool] = mapped_column(Boolean, default=False)
     costo_extra: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)

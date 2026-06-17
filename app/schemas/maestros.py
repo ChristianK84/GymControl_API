@@ -5,22 +5,22 @@ from pydantic import BaseModel, Field
 
 
 class MaestroCreate(BaseModel):
-    user_id: Optional[int] = None
+    user_id: Optional[int] = Field(default=None, gt=0)
     nombre: str = Field(max_length=100)
     apellido_paterno: str = Field(max_length=100)
-    apellido_materno: Optional[str] = None
-    telefono: Optional[str] = None
-    foto: Optional[str] = None
+    apellido_materno: Optional[str] = Field(default=None, max_length=100)
+    telefono: Optional[str] = Field(default=None, max_length=20)
+    foto: Optional[str] = Field(default=None, max_length=500)
     fecha_nacimiento: Optional[date] = None
 
 
 class MaestroUpdate(BaseModel):
-    user_id: Optional[int] = None
-    nombre: Optional[str] = None
-    apellido_paterno: Optional[str] = None
-    apellido_materno: Optional[str] = None
-    telefono: Optional[str] = None
-    foto: Optional[str] = None
+    user_id: Optional[int] = Field(default=None, gt=0)
+    nombre: Optional[str] = Field(default=None, max_length=100)
+    apellido_paterno: Optional[str] = Field(default=None, max_length=100)
+    apellido_materno: Optional[str] = Field(default=None, max_length=100)
+    telefono: Optional[str] = Field(default=None, max_length=20)
+    foto: Optional[str] = Field(default=None, max_length=500)
     fecha_nacimiento: Optional[date] = None
     is_active: Optional[bool] = None
 

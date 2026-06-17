@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.dependencies import require_maestro
+from app.api.dependencies import get_current_maestro, require_maestro
 from app.core.database import get_db
 from app.models import Alumno, Asistencia, Maestro, Membresia, TipoMembresia
 from app.schemas.asistencias import (
@@ -222,12 +222,21 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
 
 
 @router.post("/", response_model=AsistenciaResponse, status_code=201)
-def create_asistencia(payload: AsistenciaCreate, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
+def create_asistencia(
+    payload: AsistenciaCreate,
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
+    maestro_id = current_maestro.id if current_maestro else payload.maestro_id
+
     alumno = db.query(Alumno).filter(
         Alumno.id == payload.alumno_id, Alumno.is_deleted == False
     ).first()
     if not alumno:
         raise HTTPException(status_code=400, detail="Alumno no encontrado o inactivo")
+    if current_maestro and alumno.maestro_id != current_maestro.id:
+        raise HTTPException(status_code=403, detail="No autorizado para este alumno")
 
     existing = db.query(Asistencia).filter(
         Asistencia.alumno_id == payload.alumno_id,
@@ -245,7 +254,9 @@ def create_asistencia(payload: AsistenciaCreate, db: Session = Depends(get_db), 
     es_dia_extra = costo_extra is not None
     costo_final = costo_extra or Decimal("0")
 
-    asistencia = Asistencia(**payload.model_dump())
+    data = payload.model_dump()
+    data["maestro_id"] = maestro_id
+    asistencia = Asistencia(**data)
     asistencia.es_dia_extra = es_dia_extra
     asistencia.costo_extra = costo_final
     db.add(asistencia)
@@ -263,11 +274,14 @@ def list_asistencias(
     fecha_hasta: datetime = Query(None),
     db: Session = Depends(get_db),
     _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
 ):
     q = _asistencia_base_query(db)
     if alumno_id:
         q = q.filter(Asistencia.alumno_id == alumno_id)
-    if maestro_id:
+    if current_maestro:
+        q = q.filter(Asistencia.maestro_id == current_maestro.id)
+    elif maestro_id:
         q = q.filter(Asistencia.maestro_id == maestro_id)
     if fecha_desde:
         q = q.filter(Asistencia.fecha >= fecha_desde)
@@ -280,20 +294,37 @@ def list_asistencias(
 
 
 @router.get("/{asistencia_id}", response_model=AsistenciaResponse)
-def get_asistencia(asistencia_id: int, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
+def get_asistencia(
+    asistencia_id: int,
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
     asistencia = _asistencia_base_query(db).filter(Asistencia.id == asistencia_id).first()
     if not asistencia:
         raise HTTPException(status_code=404, detail="Asistencia no encontrada")
+    if current_maestro and asistencia.maestro_id != current_maestro.id:
+        raise HTTPException(status_code=403, detail="No autorizado para esta asistencia")
     return _enriquecer_impago(asistencia, db)
 
 
 @router.put("/{asistencia_id}", response_model=AsistenciaResponse)
-def update_asistencia(asistencia_id: int, payload: AsistenciaUpdate, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
+def update_asistencia(
+    asistencia_id: int,
+    payload: AsistenciaUpdate,
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
     asistencia = _asistencia_base_query(db).filter(Asistencia.id == asistencia_id).first()
     if not asistencia:
         raise HTTPException(status_code=404, detail="Asistencia no encontrada")
+    if current_maestro and asistencia.maestro_id != current_maestro.id:
+        raise HTTPException(status_code=403, detail="No autorizado para esta asistencia")
 
     update_data = payload.model_dump(exclude_unset=True)
+    if current_maestro:
+        update_data.pop("maestro_id", None)
     for field, value in update_data.items():
         setattr(asistencia, field, value)
 
@@ -303,10 +334,17 @@ def update_asistencia(asistencia_id: int, payload: AsistenciaUpdate, db: Session
 
 
 @router.delete("/{asistencia_id}", status_code=204)
-def delete_asistencia(asistencia_id: int, db: Session = Depends(get_db), _maestro=Depends(require_maestro)):
+def delete_asistencia(
+    asistencia_id: int,
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
     asistencia = db.query(Asistencia).filter(Asistencia.id == asistencia_id).first()
     if not asistencia:
         raise HTTPException(status_code=404, detail="Asistencia no encontrada")
+    if current_maestro and asistencia.maestro_id != current_maestro.id:
+        raise HTTPException(status_code=403, detail="No autorizado para esta asistencia")
 
     db.delete(asistencia)
     db.commit()

@@ -6,14 +6,14 @@ from pydantic import BaseModel, Field
 
 
 class AsistenciaCreate(BaseModel):
-    alumno_id: int
-    maestro_id: int
+    alumno_id: int = Field(gt=0)
+    maestro_id: int = Field(gt=0)
     fecha: datetime
     asistio: bool
-    notas: Optional[str] = None
-    registrado_por: Optional[int] = None
+    notas: Optional[str] = Field(default=None, max_length=500)
+    registrado_por: Optional[int] = Field(default=None, gt=0)
     es_dia_extra: bool = False
-    costo_extra: Decimal = Decimal("0")
+    costo_extra: Decimal = Field(default=Decimal("0"), ge=0, max_digits=10, decimal_places=2)
 
 
 class AsistenciaUpdate(BaseModel):
@@ -59,8 +59,8 @@ class AsistenciaResponse(BaseModel):
 
 
 class AsistenciaScanRequest(BaseModel):
-    alumno_id: int
-    maestro_id: int
+    alumno_id: int = Field(gt=0)
+    maestro_id: int = Field(gt=0)
 
 
 class AsistenciaScanResponse(BaseModel):

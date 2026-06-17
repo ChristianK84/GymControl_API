@@ -8,18 +8,18 @@ from pydantic import BaseModel, Field
 # ── Membresia ──
 
 class MembresiaCreate(BaseModel):
-    alumno_id: int
-    tipo_membresia_id: int
-    costo_real: Decimal
-    porcentaje_beca: int = 0
+    alumno_id: int = Field(gt=0)
+    tipo_membresia_id: int = Field(gt=0)
+    costo_real: Decimal = Field(max_digits=10, decimal_places=2, ge=0)
+    porcentaje_beca: int = Field(default=0, ge=0, le=100)
     fecha_inicio: date
     fecha_vencimiento: date
     pagado: bool = True
-    notas: Optional[str] = None
+    notas: Optional[str] = Field(default=None, max_length=500)
 
 
 class MembresiaUpdate(BaseModel):
-    tipo_membresia_id: Optional[int] = None
+    tipo_membresia_id: Optional[int] = Field(default=None, gt=0)
     costo_real: Optional[Decimal] = None
     porcentaje_beca: Optional[int] = None
     fecha_inicio: Optional[date] = None

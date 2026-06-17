@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.limiter import limiter
 from app.core.security import create_access_token, verify_password
 from app.models import Maestro, User
 from app.schemas.auth import LoginRequest, TokenResponse
@@ -15,26 +16,27 @@ LOCKOUT_MINUTES = 15
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == payload.username, User.is_deleted == False).first()
 
-    if user and user.locked_until and user.locked_until > datetime.now(timezone.utc):
-        remaining = int((user.locked_until - datetime.now(timezone.utc)).total_seconds() // 60)
-        raise HTTPException(
-            status_code=status.HTTP_423_LOCKED,
-            detail=f"Cuenta bloqueada. Intente de nuevo en {remaining} minuto(s).",
-        )
-
-    if not user or not verify_password(payload.password, user.password_hash):
-        if user:
-            user.failed_login_attempts += 1
-            if user.failed_login_attempts >= MAX_LOGIN_ATTEMPTS:
-                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)
-            db.commit()
+    if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
 
-    if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario desactivado")
+    if user.locked_until:
+        if user.locked_until > datetime.now(timezone.utc):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        db.commit()
+        db.refresh(user)
+
+    if not verify_password(payload.password, user.password_hash):
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= MAX_LOGIN_ATTEMPTS:
+            user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
 
     user.failed_login_attempts = 0
     user.locked_until = None
