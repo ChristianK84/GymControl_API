@@ -1,4 +1,7 @@
+from datetime import date, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_user, require_maestro
@@ -54,6 +57,28 @@ def list_alumnos(
     if not include_deleted:
         q = q.filter(Alumno.is_deleted == False)
     return q.order_by(Alumno.id).all()
+
+
+@router.get("/cumpleaños", response_model=list[AlumnoResponse])
+def list_cumpleanios(
+    db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
+):
+    today = date.today()
+    end_date = today + timedelta(days=30)
+
+    today_mmdd = today.strftime('%m-%d')
+    end_mmdd = end_date.strftime('%m-%d')
+    bd = func.to_char(Alumno.fecha_nacimiento, 'MM-DD')
+
+    q = _alumno_base_query(db).filter(Alumno.is_deleted == False)
+
+    if today_mmdd > end_mmdd:
+        q = q.filter(or_(bd >= today_mmdd, bd <= end_mmdd))
+    else:
+        q = q.filter(bd.between(today_mmdd, end_mmdd))
+
+    return q.order_by(bd).all()
 
 
 @router.get("/{alumno_id}", response_model=AlumnoResponse)
