@@ -86,14 +86,13 @@ Al crear una membresía (`POST /membresias/`) se ejecuta automáticamente:
 
 | Variable | Valor |
 |---|---|
-| `SMTP_HOST` | `smtp.gmail.com` |
-| `SMTP_PORT` | `587` |
-| `SMTP_USER` | `gimnasio@gmail.com` |
-| `SMTP_PASSWORD` | App Password de 16 caracteres de Google |
-| `SMTP_FROM_NAME` | `Katiras Gymnastics` |
+| `GMAIL_CLIENT_ID` | Client ID de Google Cloud Console (OAuth 2.0 Web Application) |
+| `GMAIL_CLIENT_SECRET` | Client Secret de Google Cloud Console |
+| `GMAIL_REFRESH_TOKEN` | Refresh token OAuth2 (empieza con `1//`) |
+| `EMAIL_FROM` | Gmail del gimnasio autorizado en OAuth consent screen |
 | `LOGO_URL` | URL pública del logo en Cloudinary |
 
-Para obtener App Password: [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+Setup: Google Cloud Console → habilitar Gmail API → OAuth consent screen (External, testing, scope `gmail.send`) → Web Application OAuth Client con redirect URI `https://developers.google.com/oauthplayground` → OAuth2 Playground para obtener refresh token.
 
 ### PDF del recibo
 
@@ -105,10 +104,11 @@ Generado con `app/core/pdf.py` usando `fpdf2`. Diseño profesional con:
 
 ### Email
 
-Enviado con `app/core/email.py` usando `smtplib` (stdlib). Contiene:
-- Cuerpo HTML con resumen de la membresía
-- PDF adjunto como `Recibo_Membresia_{id}.pdf`
-- Envío en background (no bloquea la API)
+Enviado con `app/core/email.py` usando Gmail API (OAuth2 + HTTPS). Contiene:
+- Intercambio de refresh token → access token vía `oauth2.googleapis.com/token`
+- Construcción de MIME multipart (HTML + PDF adjunto)
+- POST a `gmail.googleapis.com/gmail/v1/users/me/messages/send`
+- Cero dependencias externas (urllib + email stdlib)
 
 ## Despliegue
 

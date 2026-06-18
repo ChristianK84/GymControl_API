@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    SENDGRID_API_KEY: str = ""
+    GMAIL_CLIENT_ID: str = ""
+    GMAIL_CLIENT_SECRET: str = ""
+    GMAIL_REFRESH_TOKEN: str = ""
     EMAIL_FROM: str = ""
     LOGO_URL: str = "https://res.cloudinary.com/dyvqspnz7/image/upload/v1781796770/Logo_lzpha0.jpg"
 
