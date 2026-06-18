@@ -1,4 +1,5 @@
 fastapi==0.115.6
+fpdf2==2.8.1
 uvicorn[standard]==0.34.0
 pydantic==2.10.3
 pydantic-settings==2.7.0

@@ -1,16 +1,21 @@
-from datetime import date
+import logging
+from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.dependencies import get_current_maestro, require_maestro
+from app.api.dependencies import get_current_maestro, get_current_user, require_maestro
 from app.core.database import get_db
-from app.models import Alumno, Maestro, Membresia, TipoMembresia
+from app.core.email import enviar_recibo_email
+from app.core.pdf import generar_recibo_membresia
+from app.models import Alumno, Maestro, Membresia, TipoMembresia, Transaccion, Tutor, User
 from app.schemas.membresias import (
     MembresiaCreate,
     MembresiaResponse,
     MembresiaUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/membresias", tags=["membresias"])
 
@@ -44,9 +49,11 @@ def _actualizar_estados_vencidos(db: Session):
 @router.post("/", response_model=MembresiaResponse, status_code=201)
 def create_membresia(
     payload: MembresiaCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _maestro=Depends(require_maestro),
     current_maestro: Maestro | None = Depends(get_current_maestro),
+    current_user: User = Depends(get_current_user),
 ):
     alumno = db.query(Alumno).filter(
         Alumno.id == payload.alumno_id, Alumno.is_deleted == False
@@ -75,6 +82,77 @@ def create_membresia(
     )
     db.add(membresia)
     db.commit()
+    db.refresh(membresia)
+
+    transaccion = Transaccion(
+        tipo_transaccion=1,
+        categoria="Membresia",
+        subcategoria=tipo.nombre,
+        descripcion=f"Membresia {tipo.nombre} - {alumno.nombrecompleto} {alumno.apellido_paterno}",
+        monto=payload.costo_real,
+        fecha=date.today(),
+        membresia_id=membresia.id,
+        alumno_id=alumno.id,
+        registrado_por=current_user.id,
+    )
+    db.add(transaccion)
+    db.commit()
+
+    tutor = db.query(Tutor).filter(Tutor.alumno_id == alumno.id).first()
+
+    if tutor and tutor.email:
+
+        maestro_nombre = ""
+        if alumno.maestro_id:
+            maestro_obj = db.query(Maestro).filter(Maestro.id == alumno.maestro_id).first()
+            if maestro_obj:
+                maestro_nombre = f"{maestro_obj.nombre} {maestro_obj.apellido_paterno}"
+
+        def enviar():
+            try:
+                pdf_bytes = generar_recibo_membresia(
+                    alumno_nombre=f"{alumno.nombrecompleto} {alumno.apellido_paterno} {alumno.apellido_materno or ''}".strip(),
+                    alumno_rama=alumno.rama,
+                    tutor_nombre=f"{tutor.nombre} {tutor.apellido_paterno} {tutor.apellido_materno or ''}".strip(),
+                    tutor_telefono=tutor.telefono,
+                    tutor_email=tutor.email,
+                    membresia_id=membresia.id,
+                    tipo_nombre=tipo.nombre,
+                    costo_real=float(payload.costo_real),
+                    porcentaje_beca=payload.porcentaje_beca,
+                    fecha_inicio=payload.fecha_inicio.isoformat(),
+                    fecha_vencimiento=payload.fecha_vencimiento.isoformat(),
+                    pagado=payload.pagado,
+                    maestro_nombre=maestro_nombre,
+                    fecha_emision=datetime.now().strftime("%d/%m/%Y"),
+                )
+
+                html = f"""\
+<html><body style="font-family:Arial,sans-serif;color:#333;padding:20px">
+<h2 style="color:#007bff;">Katiras Gymnastics</h2>
+<p>Estimado(a) <b>{tutor.nombre}</b>,</p>
+<p>Adjuntamos el recibo de membresia de <b>{alumno.nombrecompleto} {alumno.apellido_paterno}</b>.</p>
+<table style="border-collapse:collapse;margin:12px 0">
+<tr><td style="padding:4px 12px;font-weight:bold">Tipo:</td><td>{tipo.nombre}</td></tr>
+<tr><td style="padding:4px 12px;font-weight:bold">Monto:</td><td>${float(payload.costo_real):,.2f} MXN</td></tr>
+<tr><td style="padding:4px 12px;font-weight:bold">Vigencia:</td><td>{payload.fecha_inicio} al {payload.fecha_vencimiento}</td></tr>
+</table>
+<p>Gracias por su preferencia.</p>
+<p style="color:#6c757d;font-size:12px">Katiras Gymnastics - GymControl</p>
+</body></html>"""
+
+                enviar_recibo_email(
+                    destinatario_email=tutor.email,
+                    asunto=f"Recibo de Membresia - {alumno.nombrecompleto} {alumno.apellido_paterno}",
+                    cuerpo_html=html,
+                    pdf_bytes=pdf_bytes,
+                    pdf_filename=f"Recibo_Membresia_{membresia.id}.pdf",
+                )
+            except Exception as exc:
+                logger.warning("Error en envio de recibo para membresia %s: %s", membresia.id, exc)
+
+        background_tasks.add_task(enviar)
+
     return _membresia_base_query(db).filter(Membresia.id == membresia.id).first()
 
 
