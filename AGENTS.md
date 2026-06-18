@@ -17,6 +17,8 @@ Servidor: FastAPI en puerto 5000 (no 8000). Todas las rutas bajo `/api/v1/`.
 - **bcrypt** directo para hashing de passwords (NO usar passlib — incompatible con bcrypt 5.x)
 - **python-jose** para JWT (HS256, expiración 60 min)
 - **pydantic-settings** lee variables de `.env`
+- **fpdf2** (2.8.1) — generación de PDF con fuentes DejaVu embebidas en `app/core/fonts/`
+- **smtplib** (stdlib) — envío de correos con PDF adjunto vía Gmail SMTP
 
 ## Base de datos
 
@@ -71,8 +73,44 @@ app/
 | CRUD | `/api/v1/estados_membresia/` | Catálogo de estados de membresía |
 | CRUD | `/api/v1/transacciones/` | Ingresos y gastos |
 
+## Recibo PDF + Email al crear membresía
+
+Al crear una membresía (`POST /membresias/`) se ejecuta automáticamente:
+
+1. Crea el registro en `membresias` (ya existía)
+2. Crea un registro en `transacciones` (`tipo=1` ingreso, categoría "Membresía", vinculado a la membresía y alumno)
+3. Genera PDF del recibo con logo y fuentes DejaVu (Ubuntu, macOS) o Helvetica (fallback)
+4. Envía email al tutor con PDF adjunto (BackgroundTask — no bloquea la respuesta)
+
+### Variables de entorno requeridas
+
+| Variable | Valor |
+|---|---|
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USER` | `gimnasio@gmail.com` |
+| `SMTP_PASSWORD` | App Password de 16 caracteres de Google |
+| `SMTP_FROM_NAME` | `Katiras Gymnastics` |
+| `LOGO_URL` | URL pública del logo en Cloudinary |
+
+Para obtener App Password: [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+
+### PDF del recibo
+
+Generado con `app/core/pdf.py` usando `fpdf2`. Diseño profesional con:
+- Logo del gimnasio (descargado de Cloudinary)
+- Datos del alumno, tutor y membresía
+- Tabla estilizada con costo, beca, fechas
+- Fuente DejaVu con soporte Unicode (acentos, ñ, etc.)
+
+### Email
+
+Enviado con `app/core/email.py` usando `smtplib` (stdlib). Contiene:
+- Cuerpo HTML con resumen de la membresía
+- PDF adjunto como `Recibo_Membresia_{id}.pdf`
+- Envío en background (no bloquea la API)
+
 ## Despliegue
 
-- **Railway** (builder Nixpacks)
+- **Render** (Web Service)
 - Start: `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`
-- Sin tests, sin CI, sin configuración de lint/typecheck
