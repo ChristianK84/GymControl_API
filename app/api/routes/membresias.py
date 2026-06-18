@@ -255,6 +255,88 @@ def update_membresia(
     return membresia
 
 
+@router.post("/{membresia_id}/enviar-recibo")
+def reenviar_recibo(
+    membresia_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+    current_user: User = Depends(get_current_user),
+):
+    membresia = _autorizar_membresia(membresia_id, db, current_maestro)
+
+    alumno = db.query(Alumno).filter(Alumno.id == membresia.alumno_id).first()
+    tutor = db.query(Tutor).filter(Tutor.alumno_id == alumno.id).first()
+
+    if not tutor:
+        raise HTTPException(status_code=400, detail="El alumno no tiene tutor registrado")
+    if not tutor.email:
+        raise HTTPException(status_code=400, detail="El tutor no tiene email registrado")
+
+    tipo = db.query(TipoMembresia).filter(TipoMembresia.id == membresia.tipo_membresia_id).first()
+
+    maestro_nombre = ""
+    if alumno.maestro_id:
+        maestro_obj = db.query(Maestro).filter(Maestro.id == alumno.maestro_id).first()
+        if maestro_obj:
+            maestro_nombre = f"{maestro_obj.nombre} {maestro_obj.apellido_paterno}"
+
+    logger.info("Programando reenvio de recibo de membresia %s a %s", membresia_id, tutor.email)
+
+    def enviar():
+        try:
+            logger.info("Generando PDF para membresia %s...", membresia_id)
+            pdf_bytes = generar_recibo_membresia(
+                alumno_nombre=f"{alumno.nombrecompleto} {alumno.apellido_paterno} {alumno.apellido_materno or ''}".strip(),
+                alumno_rama=alumno.rama,
+                tutor_nombre=f"{tutor.nombre} {tutor.apellido_paterno} {tutor.apellido_materno or ''}".strip(),
+                tutor_telefono=tutor.telefono,
+                tutor_email=tutor.email,
+                membresia_id=membresia.id,
+                tipo_nombre=tipo.nombre,
+                costo_real=float(membresia.costo_real),
+                porcentaje_beca=membresia.porcentaje_beca,
+                fecha_inicio=membresia.fecha_inicio.isoformat(),
+                fecha_vencimiento=membresia.fecha_vencimiento.isoformat(),
+                pagado=membresia.pagado,
+                maestro_nombre=maestro_nombre,
+                fecha_emision=datetime.now().strftime("%d/%m/%Y"),
+            )
+            logger.info("PDF generado: %s bytes para membresia %s", len(pdf_bytes), membresia_id)
+
+            html = f"""\
+<html><body style="font-family:Arial,sans-serif;color:#333;padding:20px">
+<h2 style="color:#007bff;">Katiras Gymnastics</h2>
+<p>Estimado(a) <b>{tutor.nombre}</b>,</p>
+<p>Adjuntamos el recibo de membresia de <b>{alumno.nombrecompleto} {alumno.apellido_paterno}</b>.</p>
+<table style="border-collapse:collapse;margin:12px 0">
+<tr><td style="padding:4px 12px;font-weight:bold">Tipo:</td><td>{tipo.nombre}</td></tr>
+<tr><td style="padding:4px 12px;font-weight:bold">Monto:</td><td>${float(membresia.costo_real):,.2f} MXN</td></tr>
+<tr><td style="padding:4px 12px;font-weight:bold">Vigencia:</td><td>{membresia.fecha_inicio} al {membresia.fecha_vencimiento}</td></tr>
+</table>
+<p>Gracias por su preferencia.</p>
+<p style="color:#6c757d;font-size:12px">Katiras Gymnastics - GymControl</p>
+</body></html>"""
+
+            ok = enviar_recibo_email(
+                destinatario_email=tutor.email,
+                asunto=f"Recibo de Membresia - {alumno.nombrecompleto} {alumno.apellido_paterno}",
+                cuerpo_html=html,
+                pdf_bytes=pdf_bytes,
+                pdf_filename=f"Recibo_Membresia_{membresia.id}.pdf",
+            )
+            if ok:
+                logger.info("Reenvio exitoso a %s para membresia %s", tutor.email, membresia_id)
+            else:
+                logger.error("enviar_recibo_email retorno False para %s", tutor.email)
+        except Exception as exc:
+            logger.warning("Error en reenvio de recibo para membresia %s: %s", membresia_id, exc)
+
+    background_tasks.add_task(enviar)
+    return {"message": f"Recibo programado para envio a {tutor.email}"}
+
+
 @router.delete("/{membresia_id}", status_code=204)
 def cancelar_membresia(
     membresia_id: int,
