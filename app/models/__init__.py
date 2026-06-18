@@ -1,5 +1,6 @@
 from app.models.alumnos import Alumno
 from app.models.asistencias import Asistencia
+from app.models.audit_logs import AuditLog
 from app.models.catalogs import EstadoMembresia, Rol
 from app.models.contacto_emergencia import ContactoEmergencia
 from app.models.fichas_medicas import FichaMedica
@@ -12,6 +13,7 @@ from app.models.users import User
 __all__ = [
     "Alumno",
     "Asistencia",
+    "AuditLog",
     "ContactoEmergencia",
     "EstadoMembresia",
     "FichaMedica",

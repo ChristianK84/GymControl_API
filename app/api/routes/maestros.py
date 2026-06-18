@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_maestro, get_current_user, require_admin
+from app.core.audit import audit_log
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.models import Maestro, User
@@ -67,6 +68,10 @@ def create_maestro(payload: MaestroCreate, db: Session = Depends(get_db), _admin
     maestro = Maestro(**data)
     db.add(maestro)
     db.commit()
+
+    audit_log(db, _admin.id, "CREATE", "maestro", maestro.id,
+              f"{_admin.username} creó al maestro {maestro.nombre} {maestro.apellido_paterno}")
+
     return _maestro_base_query(db).filter(Maestro.id == maestro.id).first()
 
 
@@ -121,6 +126,10 @@ def update_maestro(maestro_id: int, payload: MaestroUpdate, db: Session = Depend
 
     db.commit()
     db.refresh(maestro)
+
+    audit_log(db, _admin.id, "UPDATE", "maestro", maestro.id,
+              f"{_admin.username} actualizó al maestro {maestro.nombre} {maestro.apellido_paterno}")
+
     return maestro
 
 
@@ -133,3 +142,6 @@ def delete_maestro(maestro_id: int, db: Session = Depends(get_db), _admin=Depend
     maestro.is_deleted = True
     maestro.is_active = False
     db.commit()
+
+    audit_log(db, _admin.id, "DELETE", "maestro", maestro.id,
+              f"{_admin.username} eliminó al maestro {maestro.nombre} {maestro.apellido_paterno}")

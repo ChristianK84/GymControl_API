@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_admin
+from app.core.audit import audit_log
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.models import Rol, User
@@ -32,6 +33,10 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db), _admin=Depen
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    audit_log(db, _admin.id, "CREATE", "usuario", user.id,
+              f"{_admin.username} creó al usuario {user.username}")
+
     return user
 
 
@@ -83,6 +88,10 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
 
     db.commit()
     db.refresh(user)
+
+    audit_log(db, _admin.id, "UPDATE", "usuario", user.id,
+              f"{_admin.username} actualizó al usuario {user.username}")
+
     return user
 
 
@@ -106,6 +115,9 @@ def reset_password(user_id: int, db: Session = Depends(get_db), _admin=Depends(r
     user.password_hash = hash_password(new_password)
     db.commit()
 
+    audit_log(db, _admin.id, "UPDATE", "usuario", user.id,
+              f"{_admin.username} restableció la contraseña de {user.username}")
+
     return PasswordResetResponse(new_password=new_password)
 
 
@@ -118,3 +130,6 @@ def delete_user(user_id: int, db: Session = Depends(get_db), _admin=Depends(requ
     user.is_deleted = True
     user.is_active = False
     db.commit()
+
+    audit_log(db, _admin.id, "DELETE", "usuario", user.id,
+              f"{_admin.username} eliminó al usuario {user.username}")

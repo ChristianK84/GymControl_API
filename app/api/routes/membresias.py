@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_maestro, get_current_user, require_maestro
+from app.core.audit import audit_log
 from app.core.database import get_db
 from app.core.email import enviar_recibo_email
 from app.core.pdf import generar_recibo_membresia
@@ -97,6 +98,9 @@ def create_membresia(
     )
     db.add(transaccion)
     db.commit()
+
+    audit_log(db, current_user.id, "CREATE", "membresia", membresia.id,
+              f"{current_user.username} creó membresía {tipo.nombre} para alumno #{alumno.id}")
 
     tutor = db.query(Tutor).filter(Tutor.alumno_id == alumno.id).first()
 
@@ -252,6 +256,10 @@ def update_membresia(
 
     db.commit()
     db.refresh(membresia)
+
+    audit_log(db, _maestro.id, "UPDATE", "membresia", membresia.id,
+              f"{_maestro.username} actualizó membresía #{membresia_id}")
+
     return membresia
 
 
@@ -334,6 +342,10 @@ def reenviar_recibo(
             logger.warning("Error en reenvio de recibo para membresia %s: %s", membresia_id, exc)
 
     background_tasks.add_task(enviar)
+
+    audit_log(db, current_user.id, "SEND_EMAIL", "membresia", membresia_id,
+              f"{current_user.username} reenvió recibo de membresía #{membresia_id} a {tutor.email}")
+
     return {"message": f"Recibo programado para envio a {tutor.email}"}
 
 
@@ -348,3 +360,6 @@ def cancelar_membresia(
 
     membresia.estado_id = CANCELADA
     db.commit()
+
+    audit_log(db, _maestro.id, "DELETE", "membresia", membresia.id,
+              f"{_maestro.username} canceló membresía #{membresia_id}")

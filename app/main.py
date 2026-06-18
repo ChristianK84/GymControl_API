@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-from app.api.routes import alumnos, asistencias, auth, estados_membresia, health, maestros, membresias, roles, tipos_membresia, transacciones, users
+from app.api.routes import alumnos, asistencias, audit_logs, auth, estados_membresia, health, maestros, membresias, roles, tipos_membresia, transacciones, users
 from sqlalchemy import text
 
 from app.core.config import settings
@@ -18,6 +18,7 @@ from app.core.limiter import limiter
 from app.models import (  # noqa: F401 — registra todos los modelos en Base.metadata
     Alumno,
     Asistencia,
+    AuditLog,
     ContactoEmergencia,
     EstadoMembresia,
     FichaMedica,
@@ -75,6 +76,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(health.router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
+app.include_router(audit_logs.router, prefix=settings.API_V1_PREFIX)
 app.include_router(roles.router, prefix=settings.API_V1_PREFIX)
 app.include_router(users.router, prefix=settings.API_V1_PREFIX)
 app.include_router(alumnos.router, prefix=settings.API_V1_PREFIX)

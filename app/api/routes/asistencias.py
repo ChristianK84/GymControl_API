@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_maestro, require_maestro
+from app.core.audit import audit_log
 from app.core.database import get_db
 from app.models import Alumno, Asistencia, Maestro, Membresia, TipoMembresia
 from app.schemas.asistencias import (
@@ -203,6 +204,9 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
     db.add(asistencia)
     db.commit()
 
+    audit_log(db, current_user.id, "SCAN", "asistencia", asistencia.id,
+              f"{current_user.username} registró asistencia de alumno #{alumno.id}")
+
     result = _asistencia_base_query(db).filter(Asistencia.id == asistencia.id).first()
     result = _enriquecer_impago(result, db)
 
@@ -261,6 +265,10 @@ def create_asistencia(
     asistencia.costo_extra = costo_final
     db.add(asistencia)
     db.commit()
+
+    audit_log(db, _maestro.id, "CREATE", "asistencia", asistencia.id,
+              f"{_maestro.username} registró asistencia manual de alumno #{payload.alumno_id}")
+
     return _enriquecer_impago(
         _asistencia_base_query(db).filter(Asistencia.id == asistencia.id).first(), db
     )
@@ -330,6 +338,10 @@ def update_asistencia(
 
     db.commit()
     db.refresh(asistencia)
+
+    audit_log(db, _maestro.id, "UPDATE", "asistencia", asistencia.id,
+              f"{_maestro.username} actualizó asistencia #{asistencia_id}")
+
     return _enriquecer_impago(asistencia, db)
 
 
@@ -348,3 +360,6 @@ def delete_asistencia(
 
     db.delete(asistencia)
     db.commit()
+
+    audit_log(db, _maestro.id, "DELETE", "asistencia", asistencia_id,
+              f"{_maestro.username} eliminó asistencia #{asistencia_id}")

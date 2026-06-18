@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_current_user
+from app.core.audit import audit_log
 from app.core.database import get_db
 from app.core.limiter import limiter
 from app.core.security import create_access_token, verify_password
@@ -54,6 +56,8 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
         if maestro:
             maestro_id = maestro.id
 
+    audit_log(db, user.id, "LOGIN", "auth", None, f"{user.username} inició sesión")
+
     return TokenResponse(
         access_token=token,
         user_id=user.id,
@@ -62,3 +66,9 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
         role_id=user.role_id,
         maestro_id=maestro_id,
     )
+
+
+@router.post("/logout")
+def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    audit_log(db, current_user.id, "LOGOUT", "auth", None, f"{current_user.username} cerró sesión")
+    return {"message": "Sesión cerrada"}

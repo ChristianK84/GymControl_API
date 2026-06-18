@@ -6,6 +6,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_maestro, get_current_user, require_maestro
+from app.core.audit import audit_log
 from app.core.database import get_db
 from app.core.email import enviar_recibo_email
 from app.core.qr_utils import generar_qr_png
@@ -67,6 +68,9 @@ def create_alumno(
     db.add(ContactoEmergencia(**payload.contacto_emergencia.model_dump(), alumno_id=alumno.id))
     db.add(FichaMedica(**payload.ficha_medica.model_dump(), alumno_id=alumno.id))
     db.commit()
+
+    audit_log(db, current_user.id, "CREATE", "alumno", alumno.id,
+              f"{current_user.username} creó al alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")
 
     return _alumno_base_query(db).filter(Alumno.id == alumno.id).first()
 
@@ -171,6 +175,10 @@ def update_alumno(
 
     db.commit()
     db.refresh(alumno)
+
+    audit_log(db, current_user.id, "UPDATE", "alumno", alumno.id,
+              f"{current_user.username} actualizó al alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")
+
     return alumno
 
 
@@ -223,6 +231,10 @@ para registrar la asistencia de su hijo(a).
             logger.warning("Error al enviar QR del alumno %s: %s", alumno_id, exc)
 
     background_tasks.add_task(enviar)
+
+    audit_log(db, _maestro.id, "SEND_EMAIL", "alumno", alumno_id,
+              f"{_maestro.username} envió QR del alumno #{alumno_id} a {tutor.email}")
+
     return {"message": f"QR programado para envio a {tutor.email}"}
 
 
@@ -242,3 +254,6 @@ def delete_alumno(
     alumno.is_deleted = True
     alumno.is_active = False
     db.commit()
+
+    audit_log(db, current_user.id, "DELETE", "alumno", alumno.id,
+              f"{current_user.username} eliminó al alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")

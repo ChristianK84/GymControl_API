@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, require_admin
+from app.core.audit import audit_log
 from app.core.database import get_db
 from app.models import TipoMembresia
 from app.schemas.tipos_membresia import (
@@ -19,6 +20,10 @@ def create_tipo(payload: TipoMembresiaCreate, db: Session = Depends(get_db), _ad
     db.add(tipo)
     db.commit()
     db.refresh(tipo)
+
+    audit_log(db, _admin.id, "CREATE", "tipo_membresia", tipo.id,
+              f"{_admin.username} creó tipo de membresía {tipo.nombre}")
+
     return tipo
 
 
@@ -57,6 +62,10 @@ def update_tipo(tipo_id: int, payload: TipoMembresiaUpdate, db: Session = Depend
 
     db.commit()
     db.refresh(tipo)
+
+    audit_log(db, _admin.id, "UPDATE", "tipo_membresia", tipo.id,
+              f"{_admin.username} actualizó tipo de membresía {tipo.nombre}")
+
     return tipo
 
 
@@ -69,3 +78,6 @@ def delete_tipo(tipo_id: int, db: Session = Depends(get_db), _admin=Depends(requ
     tipo.is_deleted = True
     tipo.is_active = False
     db.commit()
+
+    audit_log(db, _admin.id, "DELETE", "tipo_membresia", tipo.id,
+              f"{_admin.username} eliminó tipo de membresía {tipo.nombre}")
