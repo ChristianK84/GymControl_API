@@ -1,17 +1,22 @@
-from datetime import date, timedelta
+import logging
+from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_maestro, get_current_user, require_maestro
 from app.core.database import get_db
-from app.models import Alumno, ContactoEmergencia, FichaMedica, Maestro, Tutor
+from app.core.email import enviar_recibo_email
+from app.core.qr_utils import generar_qr_png
+from app.models import Alumno, ContactoEmergencia, FichaMedica, Maestro, Tutor, User
 from app.schemas.alumnos import (
     AlumnoCreate,
     AlumnoResponse,
     AlumnoUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/alumnos", tags=["alumnos"])
 
@@ -167,6 +172,58 @@ def update_alumno(
     db.commit()
     db.refresh(alumno)
     return alumno
+
+
+@router.post("/{alumno_id}/enviar-qr")
+def enviar_qr_alumno(
+    alumno_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
+    alumno = _autorizar_alumno(alumno_id, db, current_maestro)
+
+    tutor = db.query(Tutor).filter(Tutor.alumno_id == alumno.id).first()
+    if not tutor:
+        raise HTTPException(status_code=400, detail="El alumno no tiene tutor registrado")
+    if not tutor.email:
+        raise HTTPException(status_code=400, detail="El tutor no tiene email registrado")
+
+    logger.info("Programando envio de QR de alumno %s a %s", alumno_id, tutor.email)
+
+    def enviar():
+        try:
+            qr_bytes = generar_qr_png(str(alumno.id))
+            html = f"""\
+<html><body style="font-family:Arial,sans-serif;color:#333;padding:20px">
+<h2 style="color:#007bff;">Katiras Gymnastics</h2>
+<p>Estimado(a) <b>{tutor.nombre}</b>,</p>
+<p>Adjuntamos el codigo QR de <b>{alumno.nombrecompleto} {alumno.apellido_paterno}</b>.</p>
+<p style="padding:12px;background:#f8f9fa;border-radius:8px;text-align:center">
+<b>Presente este QR en la entrada del gimnasio</b><br>
+para registrar la asistencia de su hijo(a).
+</p>
+<p>Gracias por su preferencia.</p>
+<p style="color:#6c757d;font-size:12px">Katiras Gymnastics - GymControl</p>
+</body></html>"""
+
+            ok = enviar_recibo_email(
+                destinatario_email=tutor.email,
+                asunto=f"Codigo QR - {alumno.nombrecompleto} {alumno.apellido_paterno}",
+                cuerpo_html=html,
+                pdf_bytes=qr_bytes,
+                pdf_filename=f"QR_{alumno.nombrecompleto}.png",
+            )
+            if ok:
+                logger.info("QR enviado exitosamente a %s para alumno %s", tutor.email, alumno_id)
+            else:
+                logger.error("enviar_recibo_email retorno False para %s", tutor.email)
+        except Exception as exc:
+            logger.warning("Error al enviar QR del alumno %s: %s", alumno_id, exc)
+
+    background_tasks.add_task(enviar)
+    return {"message": f"QR programado para envio a {tutor.email}"}
 
 
 @router.delete("/{alumno_id}", status_code=204)
