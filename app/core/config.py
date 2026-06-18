@@ -11,11 +11,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
-    SMTP_FROM_NAME: str = "GymControl"
+    SENDGRID_API_KEY: str = ""
+    EMAIL_FROM: str = ""
     LOGO_URL: str = "https://res.cloudinary.com/dyvqspnz7/image/upload/v1781796770/Logo_lzpha0.jpg"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}

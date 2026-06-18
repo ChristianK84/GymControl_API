@@ -100,7 +100,12 @@ def create_membresia(
 
     tutor = db.query(Tutor).filter(Tutor.alumno_id == alumno.id).first()
 
-    if tutor and tutor.email:
+    if not tutor:
+        logger.info("Alumno %s no tiene tutor registrado, se omite envio de recibo", alumno.id)
+    elif not tutor.email:
+        logger.info("Tutor de alumno %s no tiene email, se omite envio de recibo", alumno.id)
+    else:
+        logger.info("Programando envio de recibo de membresia %s a %s", membresia.id, tutor.email)
 
         maestro_nombre = ""
         if alumno.maestro_id:
@@ -110,6 +115,7 @@ def create_membresia(
 
         def enviar():
             try:
+                logger.info("Generando PDF para membresia %s...", membresia.id)
                 pdf_bytes = generar_recibo_membresia(
                     alumno_nombre=f"{alumno.nombrecompleto} {alumno.apellido_paterno} {alumno.apellido_materno or ''}".strip(),
                     alumno_rama=alumno.rama,
@@ -126,6 +132,7 @@ def create_membresia(
                     maestro_nombre=maestro_nombre,
                     fecha_emision=datetime.now().strftime("%d/%m/%Y"),
                 )
+                logger.info("PDF generado: %s bytes para membresia %s", len(pdf_bytes), membresia.id)
 
                 html = f"""\
 <html><body style="font-family:Arial,sans-serif;color:#333;padding:20px">
@@ -141,13 +148,17 @@ def create_membresia(
 <p style="color:#6c757d;font-size:12px">Katiras Gymnastics - GymControl</p>
 </body></html>"""
 
-                enviar_recibo_email(
+                ok = enviar_recibo_email(
                     destinatario_email=tutor.email,
                     asunto=f"Recibo de Membresia - {alumno.nombrecompleto} {alumno.apellido_paterno}",
                     cuerpo_html=html,
                     pdf_bytes=pdf_bytes,
                     pdf_filename=f"Recibo_Membresia_{membresia.id}.pdf",
                 )
+                if ok:
+                    logger.info("Email enviado exitosamente a %s para membresia %s", tutor.email, membresia.id)
+                else:
+                    logger.error("enviar_recibo_email retorno False para %s", tutor.email)
             except Exception as exc:
                 logger.warning("Error en envio de recibo para membresia %s: %s", membresia.id, exc)
 

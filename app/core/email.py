@@ -1,13 +1,13 @@
+import base64
+import json
 import logging
-import smtplib
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.utils import formataddr
+from urllib.request import Request, urlopen
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send"
 
 
 def enviar_recibo_email(
@@ -17,33 +17,41 @@ def enviar_recibo_email(
     pdf_bytes: bytes,
     pdf_filename: str = "Recibo_Membresia.pdf",
 ) -> bool:
+    if not settings.SENDGRID_API_KEY or not settings.EMAIL_FROM:
+        logger.warning("SendGrid no configurado (SENDGRID_API_KEY o EMAIL_FROM vacios)")
+        return False
+
     try:
-        msg = MIMEMultipart("mixed")
-        msg["From"] = formataddr((settings.SMTP_FROM_NAME, settings.SMTP_USER))
-        msg["To"] = destinatario_email
-        msg["Subject"] = asunto
+        body = json.dumps({
+            "personalizations": [{"to": [{"email": destinatario_email}], "subject": asunto}],
+            "from": {"email": settings.EMAIL_FROM, "name": "GymControl"},
+            "content": [{"type": "text/html", "value": cuerpo_html}],
+            "attachments": [{
+                "content": base64.b64encode(pdf_bytes).decode(),
+                "filename": pdf_filename,
+                "type": "application/pdf",
+                "disposition": "attachment",
+            }],
+        }).encode()
 
-        alt = MIMEMultipart("alternative")
-        alt.attach(MIMEText(cuerpo_html, "html"))
-        msg.attach(alt)
-
-        adjunto = MIMEBase("application", "octet-stream")
-        adjunto.set_payload(pdf_bytes)
-        __import__("email").encoders.encode_base64(adjunto)
-        adjunto.add_header(
-            "Content-Disposition",
-            "attachment",
-            filename=("utf-8", "", pdf_filename),
+        req = Request(
+            SENDGRID_URL,
+            data=body,
+            headers={
+                "Authorization": f"Bearer {settings.SENDGRID_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
         )
-        msg.attach(adjunto)
 
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.starttls()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(msg)
+        with urlopen(req, timeout=15) as resp:
+            status = resp.getcode()
+            if 200 <= status < 300:
+                logger.info("Recibo enviado a %s (status %s)", destinatario_email, status)
+                return True
+            logger.warning("SendGrid respondio %s para %s", status, destinatario_email)
+            return False
 
-        logger.info("Recibo enviado a %s", destinatario_email)
-        return True
     except Exception as exc:
         logger.warning("Error al enviar recibo por email a %s: %s", destinatario_email, exc)
         return False
