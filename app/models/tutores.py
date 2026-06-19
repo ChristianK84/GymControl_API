@@ -17,6 +17,6 @@ class Tutor(Base):
     apellido_paterno: Mapped[str] = mapped_column(String(100), nullable=False)
     apellido_materno: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     telefono: Mapped[str] = mapped_column(String(20), nullable=False)
-    email: Mapped[str] = mapped_column(String(150), nullable=False)
+    email: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
 
     alumno: Mapped["Alumno"] = relationship("Alumno", back_populates="tutor")

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.core.audit import audit_log
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.limiter import limiter
 from app.core.security import create_access_token, verify_password
@@ -12,9 +13,6 @@ from app.models import Maestro, User
 from app.schemas.auth import LoginRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-MAX_LOGIN_ATTEMPTS = 5
-LOCKOUT_MINUTES = 15
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -35,8 +33,8 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
 
     if not verify_password(payload.password, user.password_hash):
         user.failed_login_attempts += 1
-        if user.failed_login_attempts >= MAX_LOGIN_ATTEMPTS:
-            user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)
+        if user.failed_login_attempts >= settings.LOGIN_MAX_ATTEMPTS:
+            user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)
         db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
 

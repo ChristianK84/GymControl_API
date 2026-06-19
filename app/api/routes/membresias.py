@@ -77,7 +77,7 @@ def create_membresia(
         porcentaje_beca=payload.porcentaje_beca,
         fecha_inicio=payload.fecha_inicio,
         fecha_vencimiento=payload.fecha_vencimiento,
-        estado_id=ACTIVA,
+        estado_id=VENCIDA if payload.fecha_vencimiento <= date.today() else ACTIVA,
         pagado=payload.pagado,
         notas=payload.notas,
     )

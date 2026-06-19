@@ -26,4 +26,5 @@ def audit_log(
         db.add(log)
         db.commit()
     except Exception as exc:
+        db.rollback()
         logger.warning("Error al registrar auditoria: %s", exc)

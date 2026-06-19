@@ -25,7 +25,7 @@ def _generar_username(nombre: str, apellido_paterno: str) -> str:
     return nombre[0].upper() + apellido_paterno[0].upper() + apellido_paterno[1:].lower()
 
 
-def _crear_usuario_maestro(nombre: str, apellido_paterno: str, fecha_nacimiento, db: Session) -> User:
+def _crear_usuario_maestro(nombre: str, apellido_paterno: str, db: Session) -> User:
     base_username = _generar_username(nombre, apellido_paterno)
     username = base_username
     counter = 1
@@ -59,7 +59,7 @@ def create_maestro(payload: MaestroCreate, db: Session = Depends(get_db), _admin
             raise HTTPException(status_code=400, detail="El usuario no existe")
     elif payload.fecha_nacimiento is not None:
         user = _crear_usuario_maestro(
-            payload.nombre, payload.apellido_paterno, payload.fecha_nacimiento, db
+            payload.nombre, payload.apellido_paterno, db
         )
         user_id = user.id
 

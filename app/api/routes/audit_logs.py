@@ -15,6 +15,7 @@ def list_audit_logs(
     user_id: int = Query(None),
     action: str = Query(None),
     entity: str = Query(None),
+    limit: int = Query(500, ge=1, le=5000),
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
 ):
@@ -27,7 +28,7 @@ def list_audit_logs(
     if entity:
         q = q.filter(AuditLog.entity == entity)
 
-    logs = q.order_by(desc(AuditLog.id)).limit(500).all()
+    logs = q.order_by(desc(AuditLog.id)).limit(limit).all()
 
     result = []
     for log in logs:
