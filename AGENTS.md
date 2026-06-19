@@ -15,7 +15,7 @@ Servidor: FastAPI en puerto 5000 (no 8000). Todas las rutas bajo `/api/v1/`.
 - **Python 3.13.5** / **FastAPI** / **SQLAlchemy 2.0** (ORM síncrono)
 - **PostgreSQL** vía Supabase (`aws-1-us-west-2.pooler.supabase.com:6543`)
 - **bcrypt** directo para hashing de passwords (NO usar passlib — incompatible con bcrypt 5.x)
-- **python-jose** para JWT (HS256, expiración 60 min)
+- **python-jose** para JWT (HS256, expiración 15 min)
 - **pydantic-settings** lee variables de `.env`
 - **fpdf2** (2.8.1) — generación de PDF con fuentes DejaVu embebidas en `app/core/fonts/`
 - **smtplib** (stdlib) — envío de correos con PDF adjunto vía Gmail SMTP

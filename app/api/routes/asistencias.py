@@ -52,7 +52,7 @@ def _asistencia_base_query(db: Session):
     return db.query(Asistencia).options(
         joinedload(Asistencia.alumno),
         joinedload(Asistencia.maestro),
-    )
+    ).filter(Asistencia.is_deleted == False)
 
 
 def _membresia_activa(alumno_id: int, db: Session) -> Optional[Membresia]:
@@ -187,6 +187,7 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
     existing = db.query(Asistencia).filter(
         Asistencia.alumno_id == payload.alumno_id,
         Asistencia.fecha >= now.replace(hour=0, minute=0, second=0, microsecond=0),
+        Asistencia.is_deleted == False,
     ).first()
 
     if existing:
@@ -251,6 +252,7 @@ def create_asistencia(
     existing = db.query(Asistencia).filter(
         Asistencia.alumno_id == payload.alumno_id,
         Asistencia.fecha == payload.fecha,
+        Asistencia.is_deleted == False,
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Ya existe registro para este alumno en esta fecha")
@@ -365,7 +367,8 @@ def delete_asistencia(
     if current_maestro and asistencia.maestro_id != current_maestro.id:
         raise HTTPException(status_code=403, detail="No autorizado para esta asistencia")
 
-    db.delete(asistencia)
+    asistencia.is_deleted = True
+    asistencia.is_active = False
     db.commit()
 
     audit_log(db, _maestro.id, "DELETE", "asistencia", asistencia_id,

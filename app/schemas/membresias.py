@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ── Membresia ──
@@ -16,6 +16,12 @@ class MembresiaCreate(BaseModel):
     fecha_vencimiento: date
     pagado: bool = True
     notas: Optional[str] = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def validar_fechas(self) -> "MembresiaCreate":
+        if self.fecha_vencimiento <= self.fecha_inicio:
+            raise ValueError("fecha_vencimiento debe ser posterior a fecha_inicio")
+        return self
 
 
 class MembresiaUpdate(BaseModel):

@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 
 class Settings(BaseSettings):
@@ -28,6 +28,16 @@ class Settings(BaseSettings):
                 "Verifica que el archivo .env exista y contenga una clave valida."
             )
         return v
+
+    @model_validator(mode="after")
+    def check_email_env(self) -> "Settings":
+        if not self.GMAIL_CLIENT_ID and not self.GMAIL_CLIENT_SECRET:
+            import logging
+            logging.warning(
+                "GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET / GMAIL_REFRESH_TOKEN no configurados. "
+                "El envio de correos no funcionara."
+            )
+        return self
 
 
 settings = Settings()

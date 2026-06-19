@@ -20,7 +20,7 @@ _logo_bytes: bytes | None = None
 def _get_logo_bytes() -> BytesIO:
     global _logo_bytes
     if _logo_bytes is None:
-        with urlopen(settings.LOGO_URL) as resp:
+        with urlopen(settings.LOGO_URL, timeout=10) as resp:
             _logo_bytes = resp.read()
     return BytesIO(_logo_bytes)
 

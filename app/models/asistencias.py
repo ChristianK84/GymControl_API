@@ -12,6 +12,10 @@ from app.core.database import Base
 class Asistencia(Base):
     __tablename__ = "asistencias"
 
+    __table_args__ = (
+        UniqueConstraint("alumno_id", "fecha", name="uq_asistencia_diaria"),
+    )
+
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     alumno_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("alumnos.id", ondelete="CASCADE"), nullable=False
@@ -27,12 +31,10 @@ class Asistencia(Base):
     )
     es_dia_extra: Mapped[bool] = mapped_column(Boolean, default=False)
     costo_extra: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.current_timestamp()
-    )
-
-    __table_args__ = (
-        UniqueConstraint("alumno_id", "fecha", name="uq_asistencia_diaria"),
     )
 
     alumno: Mapped["Alumno"] = relationship("Alumno", back_populates="asistencias")
