@@ -69,8 +69,8 @@ def create_alumno(
     db.add(FichaMedica(**payload.ficha_medica.model_dump(), alumno_id=alumno.id))
     db.commit()
 
-    audit_log(db, current_user.id, "CREATE", "alumno", alumno.id,
-              f"{current_user.username} creó al alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")
+    audit_log(db, _maestro.id, "CREATE", "alumno", alumno.id,
+              f"{_maestro.username} creó al alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")
 
     return _alumno_base_query(db).filter(Alumno.id == alumno.id).first()
 
@@ -176,8 +176,8 @@ def update_alumno(
     db.commit()
     db.refresh(alumno)
 
-    audit_log(db, current_user.id, "UPDATE", "alumno", alumno.id,
-              f"{current_user.username} actualizó al alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")
+    audit_log(db, _maestro.id, "UPDATE", "alumno", alumno.id,
+              f"{_maestro.username} actualizó al alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")
 
     return alumno
 
@@ -255,5 +255,5 @@ def delete_alumno(
     alumno.is_active = False
     db.commit()
 
-    audit_log(db, current_user.id, "DELETE", "alumno", alumno.id,
-              f"{current_user.username} eliminó al alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")
+    audit_log(db, _maestro.id, "DELETE", "alumno", alumno.id,
+              f"{_maestro.username} eliminó al alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")

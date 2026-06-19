@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
     SECRET_KEY: str = Field(default="")
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
 
     GMAIL_CLIENT_ID: str = ""
     GMAIL_CLIENT_SECRET: str = ""

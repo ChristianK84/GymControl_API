@@ -82,8 +82,7 @@ def create_membresia(
         notas=payload.notas,
     )
     db.add(membresia)
-    db.commit()
-    db.refresh(membresia)
+    db.flush()
 
     transaccion = Transaccion(
         tipo_transaccion=1,

@@ -189,6 +189,12 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
         Asistencia.fecha >= now.replace(hour=0, minute=0, second=0, microsecond=0),
     ).first()
 
+    if existing:
+        return AsistenciaScanResponse(
+            permitido=False, motivo="duplicado",
+            mensaje="Este alumno ya registró asistencia hoy.",
+        )
+
     asistencia = Asistencia(
         alumno_id=payload.alumno_id,
         maestro_id=payload.maestro_id,
@@ -260,6 +266,7 @@ def create_asistencia(
 
     data = payload.model_dump()
     data["maestro_id"] = maestro_id
+    data["registrado_por"] = _maestro.id
     asistencia = Asistencia(**data)
     asistencia.es_dia_extra = es_dia_extra
     asistencia.costo_extra = costo_final
