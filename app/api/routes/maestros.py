@@ -62,6 +62,9 @@ def create_maestro(payload: MaestroCreate, db: Session = Depends(get_db), _admin
             payload.nombre, payload.apellido_paterno, db
         )
         user_id = user.id
+    else:
+        raise HTTPException(status_code=400,
+                            detail="Debe proporcionar user_id o fecha_nacimiento para crear un maestro")
 
     data = payload.model_dump()
     data["user_id"] = user_id
@@ -119,6 +122,9 @@ def update_maestro(maestro_id: int, payload: MaestroUpdate, db: Session = Depend
         existing = db.query(Maestro).filter(Maestro.user_id == payload.user_id).first()
         if existing:
             raise HTTPException(status_code=400, detail="Ya existe un maestro con ese user_id")
+        user = db.query(User).filter(User.id == payload.user_id, User.is_deleted == False).first()
+        if not user:
+            raise HTTPException(status_code=400, detail="El usuario no existe")
 
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -141,6 +147,12 @@ def delete_maestro(maestro_id: int, db: Session = Depends(get_db), _admin=Depend
 
     maestro.is_deleted = True
     maestro.is_active = False
+
+    if maestro.user_id:
+        user = db.query(User).filter(User.id == maestro.user_id).first()
+        if user:
+            user.is_active = False
+
     db.commit()
 
     audit_log(db, _admin.id, "DELETE", "maestro", maestro.id,

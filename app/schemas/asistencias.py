@@ -18,7 +18,7 @@ class AsistenciaCreate(BaseModel):
 
 class AsistenciaUpdate(BaseModel):
     asistio: Optional[bool] = None
-    notas: Optional[str] = None
+    notas: Optional[str] = Field(default=None, max_length=500)
     maestro_id: Optional[int] = None
 
 

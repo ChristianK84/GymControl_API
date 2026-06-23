@@ -1,10 +1,15 @@
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+import re
+
+from pydantic import BaseModel, Field, field_validator
 
 
 # ── Tutor ──
+
+_EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
 
 class TutorCreate(BaseModel):
     nombre: str = Field(max_length=100)
@@ -13,6 +18,13 @@ class TutorCreate(BaseModel):
     telefono: str = Field(max_length=20)
     email: str = Field(max_length=150)
 
+    @field_validator("email")
+    @classmethod
+    def validar_email(cls, v: str) -> str:
+        if not _EMAIL_PATTERN.match(v):
+            raise ValueError("Formato de email invalido")
+        return v
+
 
 class TutorUpdate(BaseModel):
     nombre: Optional[str] = None
@@ -20,6 +32,13 @@ class TutorUpdate(BaseModel):
     apellido_materno: Optional[str] = None
     telefono: Optional[str] = None
     email: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def validar_email(cls, v: str) -> str:
+        if v is not None and not _EMAIL_PATTERN.match(v):
+            raise ValueError("Formato de email invalido")
+        return v
 
 
 class TutorResponse(BaseModel):

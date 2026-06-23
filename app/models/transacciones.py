@@ -30,6 +30,7 @@ class Transaccion(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.current_timestamp()
     )
+    is_deleted: Mapped[bool] = mapped_column(default=False)
 
     membresia: Mapped[Optional["Membresia"]] = relationship("Membresia")
     alumno: Mapped[Optional["Alumno"]] = relationship("Alumno")

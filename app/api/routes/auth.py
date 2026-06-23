@@ -8,11 +8,13 @@ from app.core.audit import audit_log
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.limiter import limiter
-from app.core.security import create_access_token, verify_password
+from app.core.security import create_access_token, hash_password, verify_password
 from app.models import Maestro, User
 from app.schemas.auth import LoginRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+_PLACEHOLDER_HASH = hash_password("placeholder")
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -21,10 +23,12 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
     user = db.query(User).filter(User.username == payload.username, User.is_deleted == False).first()
 
     if not user or not user.is_active:
+        verify_password(payload.password, _PLACEHOLDER_HASH)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
 
     if user.locked_until:
         if user.locked_until > datetime.now(timezone.utc):
+            verify_password(payload.password, _PLACEHOLDER_HASH)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
         user.failed_login_attempts = 0
         user.locked_until = None
@@ -42,7 +46,7 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
     user.locked_until = None
     db.commit()
 
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token({"sub": str(user.id), "tv": user.token_version})
 
     maestro_id = None
     if user.role_id == 2:

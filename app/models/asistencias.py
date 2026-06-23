@@ -3,7 +3,7 @@ from typing import Optional
 
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -11,10 +11,6 @@ from app.core.database import Base
 
 class Asistencia(Base):
     __tablename__ = "asistencias"
-
-    __table_args__ = (
-        UniqueConstraint("alumno_id", "fecha", name="uq_asistencia_diaria"),
-    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     alumno_id: Mapped[int] = mapped_column(

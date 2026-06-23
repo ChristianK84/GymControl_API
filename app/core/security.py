@@ -21,13 +21,14 @@ def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire, "iat": now})
+    to_encode.update({"exp": expire, "iat": now, "iss": "gymcontrol-api", "aud": "gymcontrol-api"})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def verify_token(token: str) -> dict | None:
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
+                             audience="gymcontrol-api", issuer="gymcontrol-api")
         return payload
     except ExpiredSignatureError:
         logger.warning("Token expirado")

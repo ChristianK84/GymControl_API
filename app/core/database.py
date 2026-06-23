@@ -9,6 +9,8 @@ engine = create_engine(
     max_overflow=10,
     pool_pre_ping=True,
     pool_recycle=1800,
+    connect_args={"connect_timeout": 5},
+    pool_timeout=10,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

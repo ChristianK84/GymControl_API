@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class TipoMembresiaCreate(BaseModel):
     nombre: str = Field(max_length=100)
     descripcion: Optional[str] = None
-    costo_base: Decimal
+    costo_base: Decimal = Field(max_digits=10, decimal_places=2)
     duracion_dias: int
     dias_incluidos: str = Field(max_length=20)
     dias_por_semana: Optional[int] = None
@@ -16,14 +16,14 @@ class TipoMembresiaCreate(BaseModel):
     nivel_competitivo: bool = False
     color: Optional[str] = None
     permite_dias_extra: bool = False
-    costo_dia_extra: Optional[Decimal] = None
+    costo_dia_extra: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
     bloquear_impago: bool = False
 
 
 class TipoMembresiaUpdate(BaseModel):
     nombre: Optional[str] = None
     descripcion: Optional[str] = None
-    costo_base: Optional[Decimal] = None
+    costo_base: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
     duracion_dias: Optional[int] = None
     dias_incluidos: Optional[str] = None
     dias_por_semana: Optional[int] = None
@@ -32,7 +32,7 @@ class TipoMembresiaUpdate(BaseModel):
     color: Optional[str] = None
     is_active: Optional[bool] = None
     permite_dias_extra: Optional[bool] = None
-    costo_dia_extra: Optional[Decimal] = None
+    costo_dia_extra: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
     bloquear_impago: Optional[bool] = None
 
 

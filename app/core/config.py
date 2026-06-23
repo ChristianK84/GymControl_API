@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
     SECRET_KEY: str = Field(default="")
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     LOGIN_MAX_ATTEMPTS: int = 5
     LOGIN_LOCKOUT_MINUTES: int = 15
 
@@ -29,6 +29,23 @@ class Settings(BaseSettings):
                 "SECRET_KEY debe tener al menos 32 caracteres. "
                 "Verifica que el archivo .env exista y contenga una clave valida."
             )
+        return v
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def validate_database_url(cls, v: str) -> str:
+        if not v:
+            raise ValueError("DATABASE_URL no puede estar vacia. Verifica el archivo .env")
+        if not v.startswith("postgresql"):
+            raise ValueError("DATABASE_URL debe comenzar con 'postgresql://' o 'postgresql+psycopg2://'")
+        return v
+
+    @field_validator("ALGORITHM")
+    @classmethod
+    def validate_algorithm(cls, v: str) -> str:
+        allowed = {"HS256", "HS384", "HS512", "RS256", "RS384", "RS512"}
+        if v not in allowed:
+            raise ValueError(f"ALGORITHM debe ser uno de: {', '.join(sorted(allowed))}")
         return v
 
     @model_validator(mode="after")

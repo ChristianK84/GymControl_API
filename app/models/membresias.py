@@ -12,7 +12,7 @@ class TipoMembresia(Base):
     __tablename__ = "tipos_membresia"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    nombre: Mapped[str] = mapped_column(String(100), nullable=False)
+    nombre: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     costo_base: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     duracion_dias: Mapped[int] = mapped_column(Integer, nullable=False)

@@ -163,16 +163,13 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
     dia_permitido = _validar_dia_permitido(hoy, tipo.dias_incluidos)
 
     if not dia_permitido:
-        costo = tipo.costo_dia_extra if tipo.costo_dia_extra is not None else Decimal("0")
-        return AsistenciaScanResponse(
-            permitido=True, motivo="fuera_de_plan",
-            mensaje=f"Hoy ({dia_nombre}) no está incluido en el plan '{tipo.nombre}' "
-                    f"({tipo.dias_incluidos})." +
-                    (f" Costo extra: ${costo:,.2f}." if costo > 0 else ""),
-            costo_extra=costo if costo > 0 else None,
-        )
+        es_extra = True
+        costo_extra_val = tipo.costo_dia_extra if tipo.costo_dia_extra is not None else Decimal("0")
+    else:
+        es_extra = False
+        costo_extra_val = Decimal("0")
 
-    if not membresia.pagado:
+    if not es_extra and not membresia.pagado:
         if tipo.bloquear_impago:
             return AsistenciaScanResponse(
                 permitido=False, motivo="impago_bloqueado",
@@ -201,12 +198,15 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
         maestro_id=payload.maestro_id,
         fecha=now,
         asistio=True,
-        es_dia_extra=False,
-        costo_extra=Decimal("0"),
+        es_dia_extra=es_extra,
+        costo_extra=costo_extra_val,
         registrado_por=current_user.id,
     )
     if impago:
         asistencia.notas = f"Asistencia registrada con alerta de impago: membresía '{tipo.nombre}' pendiente."
+    if es_extra:
+        notas_extra = f"Fuera de plan: {tipo.dias_incluidos}"
+        asistencia.notas = f"{asistencia.notas}; {notas_extra}" if asistencia.notas else notas_extra
 
     db.add(asistencia)
     db.commit()
@@ -216,6 +216,16 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
 
     result = _asistencia_base_query(db).filter(Asistencia.id == asistencia.id).first()
     result = _enriquecer_impago(result, db)
+
+    if es_extra:
+        return AsistenciaScanResponse(
+            permitido=True, motivo="fuera_de_plan",
+            mensaje=f"Hoy ({dia_nombre}) no está incluido en el plan '{tipo.nombre}' "
+                    f"({tipo.dias_incluidos})." +
+                    (f" Costo extra: ${costo_extra_val:,.2f}." if costo_extra_val > 0 else ""),
+            costo_extra=costo_extra_val if costo_extra_val > 0 else None,
+            asistencia=result,
+        )
 
     if impago:
         return AsistenciaScanResponse(

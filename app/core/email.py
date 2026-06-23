@@ -37,7 +37,7 @@ def _obtener_access_token() -> str | None:
             token = data.get("access_token")
             if token:
                 return token
-            logger.warning("OAuth response sin access_token: %s", data)
+            logger.warning("OAuth response sin access_token (status %s)", resp.getcode())
             return None
 
     except Exception as exc:
@@ -100,7 +100,7 @@ def enviar_recibo_email(
             if 200 <= status < 300:
                 logger.info("Recibo enviado a %s (status %s)", destinatario_email, status)
                 return True
-            logger.warning("Gmail API respondio %s para %s: %s", status, destinatario_email, resp.read().decode(errors="ignore")[:200])
+            logger.warning("Gmail API respondio %s para %s", status, destinatario_email)
             return False
 
     except Exception as exc:

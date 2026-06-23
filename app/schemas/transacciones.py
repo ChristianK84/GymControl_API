@@ -10,7 +10,7 @@ class TransaccionCreate(BaseModel):
     categoria: str = Field(max_length=100)
     subcategoria: Optional[str] = Field(default=None, max_length=100)
     descripcion: Optional[str] = Field(default=None, max_length=500)
-    monto: Decimal = Field(max_digits=10, decimal_places=2)
+    monto: Decimal = Field(max_digits=10, decimal_places=2, ge=0)
     fecha: date
     membresia_id: Optional[int] = Field(default=None, gt=0)
     alumno_id: Optional[int] = Field(default=None, gt=0)
@@ -22,7 +22,7 @@ class TransaccionUpdate(BaseModel):
     categoria: Optional[str] = Field(default=None, max_length=100)
     subcategoria: Optional[str] = Field(default=None, max_length=100)
     descripcion: Optional[str] = Field(default=None, max_length=500)
-    monto: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
+    monto: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2, ge=0)
     fecha: Optional[date] = None
     membresia_id: Optional[int] = Field(default=None, gt=0)
     alumno_id: Optional[int] = Field(default=None, gt=0)

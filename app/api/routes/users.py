@@ -113,6 +113,7 @@ def reset_password(user_id: int, db: Session = Depends(get_db), _admin=Depends(r
 
     new_password = _generar_password()
     user.password_hash = hash_password(new_password)
+    user.token_version += 1
     db.commit()
 
     audit_log(db, _admin.id, "UPDATE", "usuario", user.id,

@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-from app.api.routes import alumnos, asistencias, audit_logs, auth, estados_membresia, health, maestros, membresias, roles, tipos_membresia, transacciones, users
+from app.api.routes import alumnos, asistencias, audit_logs, auth, estados_membresia, health, maestros, membresias, reportes, roles, tipos_membresia, transacciones, users
 from sqlalchemy import text
 
 from app.core.config import settings
@@ -38,6 +38,7 @@ _INDICES = [
     "CREATE INDEX IF NOT EXISTS idx_transacciones_fecha ON transacciones(fecha)",
     "CREATE INDEX IF NOT EXISTS idx_asistencias_maestro_id ON asistencias(maestro_id)",
     "CREATE INDEX IF NOT EXISTS idx_alumnos_maestro_id ON alumnos(maestro_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_asistencia_diaria ON asistencias (alumno_id, DATE(fecha))",
 ]
 
 
@@ -49,8 +50,9 @@ async def lifespan(app: FastAPI):
             for stmt in _INDICES:
                 conn.execute(text(stmt))
             conn.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Error al crear indices en startup: %s", exc)
     yield
 
 
@@ -85,6 +87,7 @@ app.include_router(asistencias.router, prefix=settings.API_V1_PREFIX)
 app.include_router(estados_membresia.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tipos_membresia.router, prefix=settings.API_V1_PREFIX)
 app.include_router(membresias.router, prefix=settings.API_V1_PREFIX)
+app.include_router(reportes.router, prefix=settings.API_V1_PREFIX)
 app.include_router(transacciones.router, prefix=settings.API_V1_PREFIX)
 
 

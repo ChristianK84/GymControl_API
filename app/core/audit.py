@@ -16,15 +16,13 @@ def audit_log(
     descripcion: str,
 ) -> None:
     try:
-        log = AuditLog(
-            user_id=user_id,
-            action=action,
-            entity=entity,
-            entity_id=entity_id,
-            descripcion=descripcion,
-        )
-        db.add(log)
-        db.commit()
+        with db.begin_nested():
+            db.add(AuditLog(
+                user_id=user_id,
+                action=action,
+                entity=entity,
+                entity_id=entity_id,
+                descripcion=descripcion,
+            ))
     except Exception as exc:
-        db.rollback()
-        logger.warning("Error al registrar auditoria: %s", exc)
+        logger.error("Error al registrar auditoria: %s", exc)

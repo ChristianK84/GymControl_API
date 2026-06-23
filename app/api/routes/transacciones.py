@@ -5,6 +5,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import require_admin
+from app.core.audit import audit_log
 from app.core.database import get_db
 from app.models import Transaccion
 from app.schemas.transacciones import (
@@ -21,17 +22,23 @@ GASTO = 2
 
 
 def _transaccion_base_query(db: Session):
-    return db.query(Transaccion).options(joinedload(Transaccion.alumno))
+    return db.query(Transaccion).options(joinedload(Transaccion.alumno)).filter(Transaccion.is_deleted == False)
 
 
 @router.post("/", response_model=TransaccionResponse, status_code=201)
-def create_transaccion(payload: TransaccionCreate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+def create_transaccion(payload: TransaccionCreate, db: Session = Depends(get_db), current_user=Depends(require_admin)):
     if payload.tipo_transaccion not in (INGRESO, GASTO):
         raise HTTPException(status_code=400, detail="tipo_transaccion debe ser 1 (ingreso) o 2 (gasto)")
 
-    transaccion = Transaccion(**payload.model_dump())
+    data = payload.model_dump()
+    data["registrado_por"] = current_user.id
+    transaccion = Transaccion(**data)
     db.add(transaccion)
     db.commit()
+
+    audit_log(db, current_user.id, "CREATE", "transaccion", transaccion.id,
+              f"Transaccion #{transaccion.id} ({'ingreso' if transaccion.tipo_transaccion == INGRESO else 'gasto'}): ${transaccion.monto}")
+
     return _transaccion_base_query(db).filter(Transaccion.id == transaccion.id).first()
 
 
@@ -68,8 +75,8 @@ def get_transaccion(transaccion_id: int, db: Session = Depends(get_db), _admin=D
 
 
 @router.put("/{transaccion_id}", response_model=TransaccionResponse)
-def update_transaccion(transaccion_id: int, payload: TransaccionUpdate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
-    t = db.query(Transaccion).filter(Transaccion.id == transaccion_id).first()
+def update_transaccion(transaccion_id: int, payload: TransaccionUpdate, db: Session = Depends(get_db), current_user=Depends(require_admin)):
+    t = db.query(Transaccion).filter(Transaccion.id == transaccion_id, Transaccion.is_deleted == False).first()
     if not t:
         raise HTTPException(status_code=404, detail="Transaccion no encontrada")
 
@@ -79,17 +86,24 @@ def update_transaccion(transaccion_id: int, payload: TransaccionUpdate, db: Sess
 
     db.commit()
     db.refresh(t)
+
+    audit_log(db, current_user.id, "UPDATE", "transaccion", t.id,
+              f"Transaccion #{t.id} ({'ingreso' if t.tipo_transaccion == INGRESO else 'gasto'}): ${t.monto}")
+
     return _transaccion_base_query(db).filter(Transaccion.id == t.id).first()
 
 
 @router.delete("/{transaccion_id}", status_code=204)
-def delete_transaccion(transaccion_id: int, db: Session = Depends(get_db), _admin=Depends(require_admin)):
-    t = db.query(Transaccion).filter(Transaccion.id == transaccion_id).first()
+def delete_transaccion(transaccion_id: int, db: Session = Depends(get_db), current_user=Depends(require_admin)):
+    t = db.query(Transaccion).filter(Transaccion.id == transaccion_id, Transaccion.is_deleted == False).first()
     if not t:
         raise HTTPException(status_code=404, detail="Transaccion no encontrada")
 
-    db.delete(t)
+    t.is_deleted = True
     db.commit()
+
+    audit_log(db, current_user.id, "DELETE", "transaccion", transaccion_id,
+              f"Transaccion #{transaccion_id} eliminada")
 
 
 @router.get("/reportes/profit", response_model=list[ProfitMensual])
@@ -104,7 +118,7 @@ def profit_mensual(
             func.sum(case((Transaccion.tipo_transaccion == INGRESO, Transaccion.monto), else_=0)).label("ingresos"),
             func.sum(case((Transaccion.tipo_transaccion == GASTO, Transaccion.monto), else_=0)).label("gastos"),
         )
-        .filter(func.extract("year", Transaccion.fecha) == anio)
+        .filter(Transaccion.is_deleted == False, func.extract("year", Transaccion.fecha) == anio)
         .group_by("mes")
         .order_by("mes")
         .all()
