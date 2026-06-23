@@ -23,8 +23,13 @@ ACTIVA = 1
 PENDIENTE = 4
 
 _DIA_MAP = {
-    "lunes": 0, "martes": 1, "miercoles": 2, "miércoles": 2,
-    "jueves": 3, "viernes": 4, "sabado": 5, "sábado": 5, "domingo": 6,
+    "lunes": 0, "lun": 0,
+    "martes": 1, "mar": 1,
+    "miercoles": 2, "miércoles": 2, "mie": 2, "mié": 2,
+    "jueves": 3, "jue": 3,
+    "viernes": 4, "vie": 4,
+    "sabado": 5, "sábado": 5, "sab": 5, "sáb": 5,
+    "domingo": 6, "dom": 6,
 }
 
 

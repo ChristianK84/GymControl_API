@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class TipoMembresiaCreate(BaseModel):
@@ -19,6 +19,14 @@ class TipoMembresiaCreate(BaseModel):
     costo_dia_extra: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
     bloquear_impago: bool = False
 
+    @field_validator("dias_incluidos")
+    @classmethod
+    def validar_dias(cls, v: str) -> str:
+        from app.api.routes.asistencias import _parsear_dias
+        if not _parsear_dias(v):
+            raise ValueError(f"'{v}' no contiene días válidos. Use nombres completos (ej. lunes-viernes)")
+        return v
+
 
 class TipoMembresiaUpdate(BaseModel):
     nombre: Optional[str] = None
@@ -34,6 +42,16 @@ class TipoMembresiaUpdate(BaseModel):
     permite_dias_extra: Optional[bool] = None
     costo_dia_extra: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
     bloquear_impago: Optional[bool] = None
+
+    @field_validator("dias_incluidos")
+    @classmethod
+    def validar_dias(cls, v: str) -> str:
+        if v is None:
+            return v
+        from app.api.routes.asistencias import _parsear_dias
+        if not _parsear_dias(v):
+            raise ValueError(f"'{v}' no contiene días válidos")
+        return v
 
 
 class TipoMembresiaResponse(BaseModel):
