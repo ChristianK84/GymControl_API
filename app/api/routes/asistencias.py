@@ -249,7 +249,7 @@ def create_asistencia(
     _maestro=Depends(require_maestro),
     current_maestro: Maestro | None = Depends(get_current_maestro),
 ):
-    maestro_id = current_maestro.id if current_maestro else payload.maestro_id
+    maestro_id = alumno.maestro_id
 
     alumno = db.query(Alumno).filter(
         Alumno.id == payload.alumno_id, Alumno.is_deleted == False

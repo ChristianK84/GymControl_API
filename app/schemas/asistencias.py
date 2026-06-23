@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 class AsistenciaCreate(BaseModel):
     alumno_id: int = Field(gt=0)
-    maestro_id: int = Field(gt=0)
+    maestro_id: Optional[int] = Field(default=None, gt=0)
     fecha: datetime
     asistio: bool
     notas: Optional[str] = Field(default=None, max_length=500)
