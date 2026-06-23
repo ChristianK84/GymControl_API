@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
@@ -20,6 +22,9 @@ def list_audit_logs(
     _admin=Depends(require_admin),
 ):
     q = db.query(AuditLog).options(joinedload(AuditLog.user))
+
+    desde = datetime.now() - timedelta(days=60)
+    q = q.filter(AuditLog.created_at >= desde)
 
     if user_id:
         q = q.filter(AuditLog.user_id == user_id)
