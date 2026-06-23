@@ -249,7 +249,6 @@ def create_asistencia(
     _maestro=Depends(require_maestro),
     current_maestro: Maestro | None = Depends(get_current_maestro),
 ):
-    maestro_id = alumno.maestro_id
 
     alumno = db.query(Alumno).filter(
         Alumno.id == payload.alumno_id, Alumno.is_deleted == False
@@ -258,6 +257,8 @@ def create_asistencia(
         raise HTTPException(status_code=400, detail="Alumno no encontrado o inactivo")
     if current_maestro and alumno.maestro_id != current_maestro.id:
         raise HTTPException(status_code=403, detail="No autorizado para este alumno")
+
+    maestro_id = alumno.maestro_id
 
     existing = db.query(Asistencia).filter(
         Asistencia.alumno_id == payload.alumno_id,
