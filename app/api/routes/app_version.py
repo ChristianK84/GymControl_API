@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -64,14 +63,4 @@ def publish_version(platform: str, payload: AppVersionCreate, db: Session = Depe
         version_code=version.version_code,
         bundle_url=version.bundle_url,
         release_notes=version.release_notes,
-    )
-
-
-@router.get("/bundle/{platform}")
-def download_bundle(platform: str):
-    path = f"static/bundle_{platform}.zip"
-    return FileResponse(
-        path,
-        media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=bundle.zip"},
     )
