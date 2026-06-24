@@ -99,7 +99,7 @@ def create_membresia(
     db.commit()
 
     audit_log(db, current_user.id, "CREATE", "membresia", membresia.id,
-              f"{current_user.username} creó membresía {tipo.nombre} para alumno #{alumno.id}")
+              f"{current_user.username} creó membresía {tipo.nombre} para alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")
 
     tutor = db.query(Tutor).filter(Tutor.alumno_id == alumno.id).first()
 
@@ -283,7 +283,7 @@ def update_membresia(
     db.refresh(membresia)
 
     audit_log(db, _maestro.id, "UPDATE", "membresia", membresia.id,
-              f"{_maestro.username} actualizó membresía #{membresia_id}")
+              f"{_maestro.username} actualizó membresía {membresia.tipo_membresia.nombre} de {membresia.alumno.nombrecompleto} {membresia.alumno.apellido_paterno}")
 
     return membresia
 
@@ -383,7 +383,7 @@ def reenviar_recibo(
     background_tasks.add_task(enviar)
 
     audit_log(db, current_user.id, "SEND_EMAIL", "membresia", membresia_id,
-              f"{current_user.username} reenvió recibo de membresía #{membresia_id} a {tutor.email}")
+              f"{current_user.username} reenvió recibo de membresía {tipo.nombre} de {alumno.nombrecompleto} {alumno.apellido_paterno} a {tutor.email}")
 
     return {"message": f"Recibo programado para envio a {tutor.email}"}
 
@@ -401,4 +401,4 @@ def cancelar_membresia(
     db.commit()
 
     audit_log(db, _maestro.id, "DELETE", "membresia", membresia.id,
-              f"{_maestro.username} canceló membresía #{membresia_id}")
+              f"{_maestro.username} canceló membresía {membresia.tipo_membresia.nombre} de {membresia.alumno.nombrecompleto} {membresia.alumno.apellido_paterno}")

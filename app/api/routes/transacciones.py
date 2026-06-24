@@ -37,7 +37,7 @@ def create_transaccion(payload: TransaccionCreate, db: Session = Depends(get_db)
     db.commit()
 
     audit_log(db, current_user.id, "CREATE", "transaccion", transaccion.id,
-              f"Transaccion #{transaccion.id} ({'ingreso' if transaccion.tipo_transaccion == INGRESO else 'gasto'}): ${transaccion.monto}")
+              f"Transaccion #{transaccion.id} - {transaccion.categoria} ({'ingreso' if transaccion.tipo_transaccion == INGRESO else 'gasto'}): ${transaccion.monto}")
 
     return _transaccion_base_query(db).filter(Transaccion.id == transaccion.id).first()
 
@@ -88,7 +88,7 @@ def update_transaccion(transaccion_id: int, payload: TransaccionUpdate, db: Sess
     db.refresh(t)
 
     audit_log(db, current_user.id, "UPDATE", "transaccion", t.id,
-              f"Transaccion #{t.id} ({'ingreso' if t.tipo_transaccion == INGRESO else 'gasto'}): ${t.monto}")
+              f"Transaccion #{t.id} - {t.categoria} ({'ingreso' if t.tipo_transaccion == INGRESO else 'gasto'}): ${t.monto}")
 
     return _transaccion_base_query(db).filter(Transaccion.id == t.id).first()
 
@@ -103,7 +103,7 @@ def delete_transaccion(transaccion_id: int, db: Session = Depends(get_db), curre
     db.commit()
 
     audit_log(db, current_user.id, "DELETE", "transaccion", transaccion_id,
-              f"Transaccion #{transaccion_id} eliminada")
+              f"Transaccion #{transaccion_id} - {t.categoria} eliminada")
 
 
 @router.get("/reportes/profit", response_model=list[ProfitMensual])

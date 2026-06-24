@@ -217,7 +217,7 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
     db.commit()
 
     audit_log(db, current_user.id, "SCAN", "asistencia", asistencia.id,
-              f"{current_user.username} registró asistencia de alumno #{alumno.id}")
+              f"{current_user.username} registró asistencia de alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")
 
     result = _asistencia_base_query(db).filter(Asistencia.id == asistencia.id).first()
     result = _enriquecer_impago(result, db)
@@ -292,7 +292,7 @@ def create_asistencia(
     db.commit()
 
     audit_log(db, _maestro.id, "CREATE", "asistencia", asistencia.id,
-              f"{_maestro.username} registró asistencia manual de alumno #{payload.alumno_id}")
+              f"{_maestro.username} registró asistencia manual de alumno {alumno.nombrecompleto} {alumno.apellido_paterno}")
 
     return _enriquecer_impago(
         _asistencia_base_query(db).filter(Asistencia.id == asistencia.id).first(), db
@@ -365,7 +365,7 @@ def update_asistencia(
     db.refresh(asistencia)
 
     audit_log(db, _maestro.id, "UPDATE", "asistencia", asistencia.id,
-              f"{_maestro.username} actualizó asistencia #{asistencia_id}")
+              f"{_maestro.username} actualizó asistencia de alumno {asistencia.alumno.nombrecompleto} {asistencia.alumno.apellido_paterno}")
 
     return _enriquecer_impago(asistencia, db)
 
@@ -388,4 +388,4 @@ def delete_asistencia(
     db.commit()
 
     audit_log(db, _maestro.id, "DELETE", "asistencia", asistencia_id,
-              f"{_maestro.username} eliminó asistencia #{asistencia_id}")
+              f"{_maestro.username} eliminó asistencia de alumno {asistencia.alumno.nombrecompleto} {asistencia.alumno.apellido_paterno}")

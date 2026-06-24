@@ -233,7 +233,7 @@ para registrar la asistencia de su hijo(a).
     background_tasks.add_task(enviar)
 
     audit_log(db, _maestro.id, "SEND_EMAIL", "alumno", alumno_id,
-              f"{_maestro.username} envió QR del alumno #{alumno_id} a {tutor.email}")
+              f"{_maestro.username} envió QR del alumno {alumno.nombrecompleto} {alumno.apellido_paterno} a {tutor.email}")
 
     return {"message": f"QR programado para envio a {tutor.email}"}
 
