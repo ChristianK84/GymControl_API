@@ -114,3 +114,135 @@ Enviado con `app/core/email.py` usando Gmail API (OAuth2 + HTTPS). Contiene:
 
 - **Render** (Web Service)
 - Start: `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`
+
+---
+
+## Módulo: Firma Digital de Reglamentos (última sesión — pendiente implementar)
+
+### Visión general
+
+El tutor recibe un link por correo → abre en navegador (sin login) → ve sus datos pre-cargados + PDF del reglamento → firma en canvas → se guarda PDF firmado en Cloudinary.
+
+### Tablas nuevas
+
+**`reglamentos`**:
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id | BIGINT PK | autoincrement |
+| titulo | VARCHAR(200) | NO null |
+| descripcion | TEXT | nullable |
+| version | VARCHAR(20) | NO null (ej. "2025-1", "2026-1") |
+| url_pdf_cloudinary | VARCHAR(500) | NO null |
+| cloudinary_public_id | VARCHAR(200) | NO null |
+| is_active | BOOLEAN | default true |
+| is_deleted | BOOLEAN | default false |
+| created_at | DATETIME | server default |
+| updated_at | DATETIME | onupdate |
+
+**`firmas_reglamento`**:
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| id | BIGINT PK | autoincrement |
+| reglamento_id | BIGINT FK→reglamentos.id | NO null, RESTRICT |
+| alumno_id | BIGINT FK→alumnos.id | NO null, CASCADE |
+| tutor_id | BIGINT FK→tutores.id | NO null, CASCADE |
+| token_usado | VARCHAR(500) | NO null (JWT usado) |
+| url_pdf_firmado_cloudinary | VARCHAR(500) | nullable |
+| cloudinary_public_id_firmado | VARCHAR(200) | nullable |
+| fecha_firma | DATETIME | nullable (NULL = sin firmar) |
+| ip_address | VARCHAR(45) | nullable |
+| expira_en | DATETIME | NO null (created_at + 30 días) |
+| is_deleted | BOOLEAN | default false |
+| created_at | DATETIME | server default |
+
+### Archivos a crear
+
+| Archivo | Propósito |
+|---------|-----------|
+| `app/models/reglamentos.py` | Modelos `Reglamento` + `FirmaReglamento` |
+| `app/schemas/reglamentos.py` | Schemas Create/Update/Response |
+| `app/api/routes/reglamentos.py` | Todas las rutas del módulo |
+| `app/core/cloudinary_service.py` | Subir/bajar archivos a Cloudinary (nuevo bucket para PDFs) |
+| `app/core/jwt_reglamento.py` | Generar y validar tokens JWT para links de firma |
+| `app/core/email_reglamento.py` | Enviar email estilizado con link de firma |
+| `app/templates/firma_reglamento.html` | Página HTML estática para firma (CSS + JS vanilla) |
+
+### Rutas API a crear
+
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| `POST` | `/api/v1/reglamentos/upload` | Admin | Subir PDF del reglamento a Cloudinary |
+| `GET` | `/api/v1/reglamentos/` | Admin | Listar reglamentos |
+| `DELETE` | `/api/v1/reglamentos/{id}` | Admin | Soft delete |
+| `POST` | `/api/v1/reglamentos/generar-links` | Admin | Generar JWT por alumno + enviar emails |
+| `GET` | `/api/v1/reglamentos/firmas` | Admin | Listar todas las firmas (filtros) |
+| `GET` | `/api/v1/reglamentos/firmas/{alumno_id}` | Admin | Estado de firma de un alumno específico |
+| `GET` | `/api/v1/reglamento/firma` | Público | Servir página HTML de firma (?token=...) |
+| `POST` | `/api/v1/reglamento/firmar` | Público | Recibir canvas firma en base64 + alumno_id + token |
+| `GET` | `/api/v1/reglamento/validar/{token}` | Público | Validar token JWT y retornar datos |
+
+### Token JWT para links
+
+El link enviado al tutor es: `https://gymcontrol-api-sne4.onrender.com/api/v1/reglamento/firma?token=<JWT>`
+
+Payload del JWT (firmado con SECRET_KEY del .env):
+```json
+{
+  "alumno_id": 1,
+  "tutor_id": 5,
+  "reglamento_id": 2,
+  "tipo": "firma_reglamento",
+  "exp": 1743033600,
+  "iat": 1740441600
+}
+```
+
+Datos pre-cargados se obtienen del token + BD (no via URL params para evitar manipulación).
+
+### Página de firma (`app/templates/firma_reglamento.html`)
+
+Served by FastAPI with Jinja2 or static HTML + JS. Contains:
+1. Encabezado con logo del gimnasio
+2. Info del tutor y alumno (pre-cargados del token)
+3. Título del reglamento
+4. PDF embebido en `<iframe>` (desde Cloudinary)
+5. Canvas para firma (signature-pad JS vanilla)
+6. Checkbox de aceptación
+7. Botón "Firmar y Aceptar"
+8. Envía: canvas.toDataURL('image/png') base64 + PDF original → se embebe firma al final del PDF (con pdf-lib o similar server-side a través de Python) y se sube a Cloudinary
+
+### Flujo completo
+
+```
+1. Admin sube PDF del reglamento → Cloudinary (nuevo bucket pdfs_reglamentos/)
+2. Admin selecciona alumnos → "Generar links"
+3. Backend recorre alumnos:
+   a. Obtiene tutor vinculado
+   b. Genera JWT (alumno_id, tutor_id, reglamento_id, exp=+30d)
+   c. Guarda pre-registro en firmas_reglamento (sin fecha_firma)
+   d. Envía email al tutor con link
+4. Tutor abre link → se valida token (no expirado, no usado antes)
+   → Se muestra página HTML con datos + PDF + canvas
+5. Tutor firma → se sube:
+   a. Imagen PNG de firma → Cloudinary (firmas/)
+   b. Se genera PDF firmado (firma embebida al final con PyMuPDF/fpdf2)
+   c. PDF firmado → Cloudinary (pdfs_firmados/)
+   d. Se actualiza firmas_reglamento (fecha_firma, URL, IP)
+6. Se envía email al tutor con copia del PDF firmado
+7. Admin ve estado en Angular (agregar firma_reglamento a FirmaReglamentoResponse)
+```
+
+### Dependencias nuevas
+
+- `cloudinary` — SDK Python para subir PDFs firmados
+- `PyMuPDF` (fitz) o `reportlab` — para embeber imagen de firma en el PDF
+- python-jose (ya instalado) — para tokens JWT de links
+
+### Notas de implementación
+
+- El router `reglamentos.py` se registra con dos prefijos: `/api/v1/reglamentos` (protegido) y `/api/v1/reglamento` (público, sin auth)
+- La página HTML se sirve con `HTMLResponse` desde FastAPI (sin Jinja — HTML estático con interpolación JS)
+- signature-pad se carga vía CDN (no npm) para la página estática
+- La firma se embebe en el PDF del lado del servidor (PyMuPDF) para consistencia
+- Los links expirados o ya usados muestran mensaje de error en la página HTML
+- El admin debe ver: alumno, tutor, fecha de envío, fecha de firma, PDF firmado (link), estado (pendiente/firmado/expirado)
