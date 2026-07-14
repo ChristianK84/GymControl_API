@@ -10,3 +10,5 @@ psycopg2-binary==2.9.10
 python-jose==3.4.0
 bcrypt==5.0.0
 slowapi==0.1.10
+PyMuPDF==1.25.5
+requests==2.32.3

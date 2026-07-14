@@ -20,3 +20,6 @@ class Tutor(Base):
     email: Mapped[str] = mapped_column(String(150), nullable=False)
 
     alumno: Mapped["Alumno"] = relationship("Alumno", back_populates="tutor")
+    firmas_reglamento: Mapped[list["FirmaReglamento"]] = relationship(
+        "FirmaReglamento", back_populates="tutor"
+    )

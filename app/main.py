@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-from app.api.routes import alumnos, app_version, asistencias, audit_logs, auth, estados_membresia, health, maestros, membresias, reportes, roles, tipos_membresia, transacciones, users
+from app.api.routes import alumnos, app_version, asistencias, audit_logs, auth, estados_membresia, health, maestros, membresias, reglamentos, reportes, roles, tipos_membresia, transacciones, users
 from sqlalchemy import text
 
 from app.core.config import settings
@@ -23,8 +23,10 @@ from app.models import (  # noqa: F401 — registra todos los modelos en Base.me
     ContactoEmergencia,
     EstadoMembresia,
     FichaMedica,
+    FirmaReglamento,
     Maestro,
     Membresia,
+    Reglamento,
     Rol,
     TipoMembresia,
     Transaccion,
@@ -40,6 +42,8 @@ _INDICES = [
     "CREATE INDEX IF NOT EXISTS idx_asistencias_maestro_id ON asistencias(maestro_id)",
     "CREATE INDEX IF NOT EXISTS idx_alumnos_maestro_id ON alumnos(maestro_id)",
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_asistencia_diaria ON asistencias (alumno_id, DATE(fecha))",
+    "CREATE INDEX IF NOT EXISTS idx_firmas_reglamento_alumno ON firmas_reglamento(alumno_id)",
+    "CREATE INDEX IF NOT EXISTS idx_firmas_reglamento_reglamento ON firmas_reglamento(reglamento_id)",
 ]
 
 
@@ -90,6 +94,8 @@ app.include_router(tipos_membresia.router, prefix=settings.API_V1_PREFIX)
 app.include_router(membresias.router, prefix=settings.API_V1_PREFIX)
 app.include_router(reportes.router, prefix=settings.API_V1_PREFIX)
 app.include_router(app_version.router, prefix=settings.API_V1_PREFIX)
+app.include_router(reglamentos.router_admin, prefix=settings.API_V1_PREFIX)
+app.include_router(reglamentos.router_public, prefix=settings.API_V1_PREFIX)
 app.include_router(transacciones.router, prefix=settings.API_V1_PREFIX)
 
 

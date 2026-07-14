@@ -7,6 +7,7 @@ from app.models.contacto_emergencia import ContactoEmergencia
 from app.models.fichas_medicas import FichaMedica
 from app.models.maestros import Maestro
 from app.models.membresias import Membresia, TipoMembresia
+from app.models.reglamentos import FirmaReglamento, Reglamento
 from app.models.transacciones import Transaccion
 from app.models.tutores import Tutor
 from app.models.users import User
@@ -19,8 +20,10 @@ __all__ = [
     "ContactoEmergencia",
     "EstadoMembresia",
     "FichaMedica",
+    "FirmaReglamento",
     "Maestro",
     "Membresia",
+    "Reglamento",
     "Rol",
     "TipoMembresia",
     "Transaccion",

@@ -42,3 +42,6 @@ class Alumno(Base):
     ficha_medica: Mapped[Optional["FichaMedica"]] = relationship(
         "FichaMedica", back_populates="alumno", uselist=False
     )
+    firmas_reglamento: Mapped[list["FirmaReglamento"]] = relationship(
+        "FirmaReglamento", back_populates="alumno"
+    )

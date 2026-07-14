@@ -105,4 +105,51 @@ def enviar_recibo_email(
 
     except Exception as exc:
         logger.warning("Error al enviar recibo por email a %s: %s", destinatario_email, exc)
+
+
+def enviar_email_html(
+    destinatario_email: str,
+    asunto: str,
+    cuerpo_html: str,
+) -> bool:
+    if not settings.GMAIL_CLIENT_ID or not settings.GMAIL_REFRESH_TOKEN or not settings.EMAIL_FROM:
+        logger.warning("Gmail OAuth no configurado")
+        return False
+
+    access_token = _obtener_access_token()
+    if not access_token:
+        logger.error("No se pudo obtener access token OAuth2")
+        return False
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["From"] = formataddr(("GymControl", settings.EMAIL_FROM))
+        msg["To"] = destinatario_email
+        msg["Subject"] = asunto
+        msg.attach(MIMEText(cuerpo_html, "html"))
+
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        body = json.dumps({"raw": raw}).encode()
+
+        req = Request(
+            GMAIL_SEND_URL,
+            data=body,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+
+        with urlopen(req, timeout=15) as resp:
+            status = resp.getcode()
+            if 200 <= status < 300:
+                logger.info("Email enviado a %s (status %s)", destinatario_email, status)
+                return True
+            logger.warning("Gmail API respondio %s para %s", status, destinatario_email)
+            return False
+
+    except Exception as exc:
+        logger.warning("Error al enviar email a %s: %s", destinatario_email, exc)
+        return False
         return False
