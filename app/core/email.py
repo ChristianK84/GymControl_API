@@ -152,4 +152,3 @@ def enviar_email_html(
     except Exception as exc:
         logger.warning("Error al enviar email a %s: %s", destinatario_email, exc)
         return False
-        return False

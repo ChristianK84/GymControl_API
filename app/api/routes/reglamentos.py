@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session, joinedload
@@ -25,6 +25,7 @@ from app.schemas.reglamentos import (
     GenerarLinksResponse,
     ReglamentoCreate,
     ReglamentoResponse,
+    ReglamentoUpdate,
     ValidarTokenResponse,
 )
 
@@ -116,10 +117,35 @@ def eliminar_reglamento(
     audit_log(db, _admin.id, "DELETE", "reglamento", reg.id, f"Eliminado reglamento {reg.titulo}")
 
 
+@router_admin.put("/{reglamento_id}", response_model=ReglamentoResponse)
+def actualizar_reglamento(
+    reglamento_id: int,
+    payload: ReglamentoUpdate,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    reg = db.query(Reglamento).filter(Reglamento.id == reglamento_id, Reglamento.is_deleted == False).first()
+    if not reg:
+        raise HTTPException(status_code=404, detail="Reglamento no encontrado")
+
+    update_data = payload.model_dump(exclude_none=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No se enviaron campos para actualizar")
+
+    for key, value in update_data.items():
+        setattr(reg, key, value)
+
+    db.commit()
+    db.refresh(reg)
+    audit_log(db, _admin.id, "UPDATE", "reglamento", reg.id, f"Actualizado reglamento {reg.titulo}")
+    return reg
+
+
 @router_admin.post("/generar-links", response_model=GenerarLinksResponse)
 def generar_links(
     payload: GenerarLinksPayload,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
 ):
@@ -198,47 +224,57 @@ def generar_links(
         email_tutor = tutor_obj.email
 
         if email_tutor:
-            try:
-                html = f"""
-                <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-                    <div style="text-align:center;padding:20px 0;">
-                        <img src="{LOGO_URL}" alt="Katira's Gymnastics" style="width:120px;">
-                        <h1 style="color:#0d47a1;margin:10px 0 0;">Katira's Gymnastics</h1>
-                    </div>
-                    <div style="background:#f5f5f5;border-radius:8px;padding:25px;margin:15px 0;">
-                        <p style="font-size:16px;color:#333;">Hola <strong>{nombre_tutor}</strong>,</p>
-                        <p style="font-size:14px;color:#555;">
-                            Te informamos que el reglamento interno de nuestra academia ha sido actualizado
-                            y necesita ser firmado por el tutor del alumno(a).
-                        </p>
-                        <p style="font-size:14px;color:#555;">
-                            <strong>Alumno(a):</strong> {alumno.nombrecompleto} {alumno.apellido_paterno}<br>
-                            <strong>Documento:</strong> {reglamento.titulo} (v{reglamento.version})
-                        </p>
-                        <div style="text-align:center;margin:25px 0;">
-                            <a href="{link}" style="display:inline-block;background:#0d47a1;color:white;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;">
-                                Firmar Reglamento
-                            </a>
+            nombre_tutor_local = nombre_tutor
+            alumno_nombre_local = f"{alumno.nombrecompleto} {alumno.apellido_paterno}"
+            reg_titulo_local = reglamento.titulo
+            reg_version_local = reglamento.version
+            link_final = link
+            logo_url = LOGO_URL
+
+            def enviar():
+                try:
+                    html = f"""
+                    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+                        <div style="text-align:center;padding:20px 0;">
+                            <img src="{logo_url}" alt="Katira's Gymnastics" style="width:120px;">
+                            <h1 style="color:#0d47a1;margin:10px 0 0;">Katira's Gymnastics</h1>
                         </div>
-                        <p style="font-size:12px;color:#999;">
-                            Este link expirar&aacute; en 30 d&iacute;as. Si no puede acceder, copie y pegue
-                            el siguiente enlace en su navegador:<br>
-                            <span style="word-break:break-all;color:#666;">{link}</span>
+                        <div style="background:#f5f5f5;border-radius:8px;padding:25px;margin:15px 0;">
+                            <p style="font-size:16px;color:#333;">Hola <strong>{nombre_tutor_local}</strong>,</p>
+                            <p style="font-size:14px;color:#555;">
+                                Te informamos que el reglamento interno de nuestra academia ha sido actualizado
+                                y necesita ser firmado por el tutor del alumno(a).
+                            </p>
+                            <p style="font-size:14px;color:#555;">
+                                <strong>Alumno(a):</strong> {alumno_nombre_local}<br>
+                                <strong>Documento:</strong> {reg_titulo_local} (v{reg_version_local})
+                            </p>
+                            <div style="text-align:center;margin:25px 0;">
+                                <a href="{link_final}" style="display:inline-block;background:#0d47a1;color:white;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;">
+                                    Firmar Reglamento
+                                </a>
+                            </div>
+                            <p style="font-size:12px;color:#999;">
+                                Este link expirar&aacute; en 30 d&iacute;as. Si no puede acceder, copie y pegue
+                                el siguiente enlace en su navegador:<br>
+                                <span style="word-break:break-all;color:#666;">{link_final}</span>
+                            </p>
+                        </div>
+                        <p style="text-align:center;font-size:11px;color:#aaa;">
+                            Katira's Gymnastics &mdash; Este es un mensaje autom&aacute;tico.
                         </p>
                     </div>
-                    <p style="text-align:center;font-size:11px;color:#aaa;">
-                        Katira's Gymnastics &mdash; Este es un mensaje autom&aacute;tico.
-                    </p>
-                </div>
-                """
-                enviar_email_html(
-                    destinatario_email=email_tutor,
-                    asunto=f"Katira's Gymnastics - Firma de Reglamento ({alumno.nombrecompleto})",
-                    cuerpo_html=html,
-                )
-                enviados += 1
-            except Exception as e:
-                logger.error("Error al enviar email a %s: %s", email_tutor, e)
+                    """
+                    enviar_email_html(
+                        destinatario_email=email_tutor,
+                        asunto=f"Katira's Gymnastics - Firma de Reglamento ({alumno_nombre_local})",
+                        cuerpo_html=html,
+                    )
+                except Exception as e:
+                    logger.error("Error al enviar email a %s: %s", email_tutor, e)
+
+            background_tasks.add_task(enviar)
+            enviados += 1
 
     audit_log(
         db, _admin.id, "GENERAR_LINKS", "reglamento", reglamento.id,
@@ -411,6 +447,7 @@ def validar_token(token: str, db: Session = Depends(get_db)):
 @router_public.post("/firmar")
 def procesar_firma(
     payload: FirmarPayload,
+    background_tasks: BackgroundTasks,
     request: Request,
     db: Session = Depends(get_db),
 ):
@@ -509,38 +546,50 @@ def procesar_firma(
         db.commit()
 
         if tutor.email:
-            try:
-                html_confirmacion = f"""
-                <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-                    <div style="text-align:center;padding:20px 0;">
-                        <img src="{settings.LOGO_URL}" alt="Katira's Gymnastics" style="width:120px;">
-                        <h1 style="color:#0d47a1;margin:10px 0 0;">Katira's Gymnastics</h1>
-                    </div>
-                    <div style="background:#f0fdf4;border-radius:8px;padding:25px;margin:15px 0;border:1px solid #86efac;">
-                        <h2 style="color:#166534;margin:0 0 10px;">&#10003; Reglamento firmado exitosamente</h2>
-                        <p style="font-size:14px;color:#333;">
-                            Hola <strong>{tutor.nombre} {tutor.apellido_paterno}</strong>,<br><br>
-                            Has firmado el reglamento de <strong>{alumno.nombrecompleto} {alumno.apellido_paterno}</strong>
-                            ({reglamento.titulo} v{reglamento.version}).<br><br>
-                            Fecha de firma: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+            tutor_nombre_local = f"{tutor.nombre} {tutor.apellido_paterno}"
+            alumno_nombre_local = f"{alumno.nombrecompleto} {alumno.apellido_paterno}"
+            reg_titulo_local = reglamento.titulo
+            reg_version_local = reglamento.version
+            pdf_url = pdf_result["secure_url"]
+            logo_url = settings.LOGO_URL
+            fecha_local = datetime.now().strftime('%d/%m/%Y %H:%M')
+            email_tutor = tutor.email
+
+            def enviar_confirmacion():
+                try:
+                    html_confirmacion = f"""
+                    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+                        <div style="text-align:center;padding:20px 0;">
+                            <img src="{logo_url}" alt="Katira's Gymnastics" style="width:120px;">
+                            <h1 style="color:#0d47a1;margin:10px 0 0;">Katira's Gymnastics</h1>
+                        </div>
+                        <div style="background:#f0fdf4;border-radius:8px;padding:25px;margin:15px 0;border:1px solid #86efac;">
+                            <h2 style="color:#166534;margin:0 0 10px;">&#10003; Reglamento firmado exitosamente</h2>
+                            <p style="font-size:14px;color:#333;">
+                                Hola <strong>{tutor_nombre_local}</strong>,<br><br>
+                                Has firmado el reglamento de <strong>{alumno_nombre_local}</strong>
+                                ({reg_titulo_local} v{reg_version_local}).<br><br>
+                                Fecha de firma: {fecha_local}
+                            </p>
+                            <p style="font-size:14px;color:#333;margin-top:15px;">
+                                Puedes descargar el PDF firmado en el siguiente enlace:<br>
+                                <a href="{pdf_url}" style="color:#0d47a1;">{pdf_url}</a>
+                            </p>
+                        </div>
+                        <p style="text-align:center;font-size:11px;color:#aaa;">
+                            Katira's Gymnastics &mdash; Este es un mensaje autom&aacute;tico.
                         </p>
-                        <p style="font-size:14px;color:#333;margin-top:15px;">
-                            Puedes descargar el PDF firmado en el siguiente enlace:<br>
-                            <a href="{pdf_result['secure_url']}" style="color:#0d47a1;">{pdf_result['secure_url']}</a>
-                        </p>
                     </div>
-                    <p style="text-align:center;font-size:11px;color:#aaa;">
-                        Katira's Gymnastics &mdash; Este es un mensaje autom&aacute;tico.
-                    </p>
-                </div>
-                """
-                enviar_email_html(
-                    destinatario_email=tutor.email,
-                    asunto=f"Katira's Gymnastics - Reglamento firmado ({alumno.nombrecompleto})",
-                    cuerpo_html=html_confirmacion,
-                )
-            except Exception as e:
-                logger.warning("No se pudo enviar confirmacion a %s: %s", tutor.email, e)
+                    """
+                    enviar_email_html(
+                        destinatario_email=email_tutor,
+                        asunto=f"Katira's Gymnastics - Reglamento firmado ({alumno_nombre_local})",
+                        cuerpo_html=html_confirmacion,
+                    )
+                except Exception as e:
+                    logger.warning("No se pudo enviar confirmacion a %s: %s", email_tutor, e)
+
+            background_tasks.add_task(enviar_confirmacion)
 
         return {"exito": True, "mensaje": "Reglamento firmado exitosamente."}
 

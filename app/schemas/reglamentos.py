@@ -12,6 +12,15 @@ class ReglamentoCreate(BaseModel):
     cloudinary_public_id: str = Field(max_length=200)
 
 
+class ReglamentoUpdate(BaseModel):
+    titulo: Optional[str] = Field(default=None, max_length=200)
+    descripcion: Optional[str] = Field(default=None, max_length=1000)
+    version: Optional[str] = Field(default=None, max_length=20)
+    is_active: Optional[bool] = None
+    url_pdf_cloudinary: Optional[str] = Field(default=None, max_length=500)
+    cloudinary_public_id: Optional[str] = Field(default=None, max_length=200)
+
+
 class ReglamentoResponse(BaseModel):
     id: int
     titulo: str
