@@ -6,7 +6,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 CLOUDINARY_UPLOAD_URL = "https://api.cloudinary.com/v1_1/dyvqspnz7/auto/upload"
-UPLOAD_PRESET = "gymcontrol/PDF"
+UPLOAD_PRESET = "archivos"
 
 
 def upload_file(file_bytes: bytes, filename: str = "document.pdf") -> Optional[dict]:
