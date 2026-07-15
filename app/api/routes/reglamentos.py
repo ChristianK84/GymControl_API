@@ -498,24 +498,28 @@ def procesar_firma(
         try:
             import fitz
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            last_page = doc[-1]
+            page_width = last_page.rect.width
 
             sig_pixmap = fitz.Pixmap(sig_bytes)
-            sig_rect = fitz.Rect(50, doc[0].rect.height - 120, 50 + sig_pixmap.width * 72 / 200, doc[0].rect.height - 20)
+            sig_scale = 400 / sig_pixmap.width if sig_pixmap.width > 400 else 1.0
+            sig_display_width = sig_pixmap.width * sig_scale * 72 / 200
+            sig_x = (page_width - sig_display_width) / 2
+            y_bottom = last_page.rect.height - 20
+            y_top = y_bottom - 100
 
-            if sig_pixmap.width > 400:
-                scale = 400 / sig_pixmap.width
-                sig_rect = fitz.Rect(50, doc[0].rect.height - 120, 50 + sig_pixmap.width * scale * 72 / 200, doc[0].rect.height - 20)
+            sig_rect = fitz.Rect(sig_x, y_top, sig_x + sig_display_width, y_bottom)
+            last_page.insert_image(sig_rect, stream=sig_bytes)
 
-            page = doc[0]
-            page.insert_image(sig_rect, stream=sig_bytes)
-            page.insert_text(
-                fitz.Point(50, doc[0].rect.height - 140),
+            text_x = sig_x + 2
+            last_page.insert_text(
+                fitz.Point(text_x, y_top - 12),
                 f"Firmado por: {tutor.nombre} {tutor.apellido_paterno}",
                 fontsize=10,
                 color=(0.2, 0.2, 0.2),
             )
-            page.insert_text(
-                fitz.Point(50, doc[0].rect.height - 155),
+            last_page.insert_text(
+                fitz.Point(text_x, y_top - 27),
                 f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
                 fontsize=9,
                 color=(0.4, 0.4, 0.4),
@@ -715,8 +719,9 @@ def pagina_firma(token: str = Query(...), db: Session = Depends(get_db)):
         </div>
         <button class="btn-aceptar" id="btn-firmar" disabled onclick="firmar()">Firmar y Aceptar</button>
         <div id="mensaje-exito" style="display:none;" class="mensaje-exito">
-          <h2>&#10003; Reglamento firmado exitosamente</h2>
-          <p>Gracias por firmar el reglamento. En breve recibir&aacute; una copia del documento firmado en su correo.</p>
+          <img src="{settings.LOGO_URL}" alt="Katira's Gymnastics" style="width:80px;height:auto;margin-bottom:15px;">
+          <h2>&#10003; Documento firmado con &eacute;xito</h2>
+          <p>El reglamento ha sido firmado correctamente. En breve recibir&aacute; una copia del documento firmado en su correo electr&oacute;nico.</p>
           <p style="margin-top:10px;font-size:13px;color:#666;">Ya puede cerrar esta ventana.</p>
         </div>
       </div>

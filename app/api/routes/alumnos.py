@@ -200,14 +200,19 @@ def enviar_qr_alumno(
 
     logger.info("Programando envio de QR de alumno %s a %s", alumno_id, tutor.email)
 
+    alumno_nombre = f"{alumno.nombrecompleto} {alumno.apellido_paterno}"
+    alumno_nombre_simple = alumno.nombrecompleto
+    tutor_nombre = tutor.nombre
+    tutor_email = tutor.email
+
     def enviar():
         try:
-            qr_bytes = generar_qr_png(str(alumno.id))
+            qr_bytes = generar_qr_png(str(alumno_id))
             html = f"""\
 <html><body style="font-family:Arial,sans-serif;color:#333;padding:20px">
 <h2 style="color:#007bff;">Katiras Gymnastics</h2>
-<p>Estimado(a) <b>{tutor.nombre}</b>,</p>
-<p>Adjuntamos el codigo QR de <b>{alumno.nombrecompleto} {alumno.apellido_paterno}</b>.</p>
+<p>Estimado(a) <b>{tutor_nombre}</b>,</p>
+<p>Adjuntamos el codigo QR de <b>{alumno_nombre}</b>.</p>
 <p style="padding:12px;background:#f8f9fa;border-radius:8px;text-align:center">
 <b>Presente este QR en la entrada del gimnasio</b><br>
 para registrar la asistencia de su hijo(a).
@@ -217,16 +222,16 @@ para registrar la asistencia de su hijo(a).
 </body></html>"""
 
             ok = enviar_recibo_email(
-                destinatario_email=tutor.email,
-                asunto=f"Codigo QR - {alumno.nombrecompleto} {alumno.apellido_paterno}",
+                destinatario_email=tutor_email,
+                asunto=f"Codigo QR - {alumno_nombre}",
                 cuerpo_html=html,
                 pdf_bytes=qr_bytes,
-                pdf_filename=f"QR_{alumno.nombrecompleto}.png",
+                pdf_filename=f"QR_{alumno_nombre_simple}.png",
             )
             if ok:
-                logger.info("QR enviado exitosamente a %s para alumno %s", tutor.email, alumno_id)
+                logger.info("QR enviado exitosamente a %s para alumno %s", tutor_email, alumno_id)
             else:
-                logger.error("enviar_recibo_email retorno False para %s", tutor.email)
+                logger.error("enviar_recibo_email retorno False para %s", tutor_email)
         except Exception as exc:
             logger.warning("Error al enviar QR del alumno %s: %s", alumno_id, exc)
 
