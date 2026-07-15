@@ -505,7 +505,7 @@ def procesar_firma(
             sig_scale = 400 / sig_pixmap.width if sig_pixmap.width > 400 else 1.0
             sig_display_width = sig_pixmap.width * sig_scale * 72 / 200
             sig_x = (page_width - sig_display_width) / 2
-            y_bottom = last_page.rect.height - 20
+            y_bottom = last_page.rect.height - 50
             y_top = y_bottom - 100
 
             sig_rect = fitz.Rect(sig_x, y_top, sig_x + sig_display_width, y_bottom)
@@ -513,13 +513,13 @@ def procesar_firma(
 
             text_x = sig_x + 2
             last_page.insert_text(
-                fitz.Point(text_x, y_top - 22),
+                fitz.Point(text_x, y_bottom + 13),
                 f"Firmado por: {tutor.nombre} {tutor.apellido_paterno}",
                 fontsize=10,
                 color=(0.2, 0.2, 0.2),
             )
             last_page.insert_text(
-                fitz.Point(text_x, y_top - 7),
+                fitz.Point(text_x, y_bottom + 25),
                 f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
                 fontsize=9,
                 color=(0.4, 0.4, 0.4),
