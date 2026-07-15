@@ -513,13 +513,13 @@ def procesar_firma(
 
             text_x = sig_x + 2
             last_page.insert_text(
-                fitz.Point(text_x, y_top - 12),
+                fitz.Point(text_x, y_top - 22),
                 f"Firmado por: {tutor.nombre} {tutor.apellido_paterno}",
                 fontsize=10,
                 color=(0.2, 0.2, 0.2),
             )
             last_page.insert_text(
-                fitz.Point(text_x, y_top - 27),
+                fitz.Point(text_x, y_top - 7),
                 f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
                 fontsize=9,
                 color=(0.4, 0.4, 0.4),
@@ -687,6 +687,11 @@ def pagina_firma(token: str = Query(...), db: Session = Depends(get_db)):
   .mensaje-exito {{ background:#f0fdf4; border:2px solid #86efac; border-radius:10px; padding:30px; text-align:center; margin:40px 0; }}
   .mensaje-exito h2 {{ color:#166534; font-size:1.3rem; margin-bottom:10px; }}
   .mensaje-exito p {{ color:#333; font-size:14px; }}
+  .mensaje-error {{ background:#fef2f2; border:2px solid #fecaca; border-radius:10px; padding:30px; text-align:center; margin:40px 0; }}
+  .mensaje-error h2 {{ color:#dc2626; font-size:1.3rem; margin-bottom:10px; }}
+  .mensaje-error p {{ color:#333; font-size:14px; }}
+  .btn-reintentar {{ display:inline-block; margin-top:15px; padding:10px 24px; background:#dc2626; color:white; border:none; border-radius:6px; font-size:14px; font-weight:600; cursor:pointer; }}
+  .btn-reintentar:hover {{ background:#b91c1c; }}
   @media (max-width:600px) {{ .pdf-section iframe {{ height:350px; }} }}
 </style>
 </head>
@@ -723,6 +728,12 @@ def pagina_firma(token: str = Query(...), db: Session = Depends(get_db)):
           <h2>&#10003; Documento firmado con &eacute;xito</h2>
           <p>El reglamento ha sido firmado correctamente. En breve recibir&aacute; una copia del documento firmado en su correo electr&oacute;nico.</p>
           <p style="margin-top:10px;font-size:13px;color:#666;">Ya puede cerrar esta ventana.</p>
+        </div>
+        <div id="mensaje-error" style="display:none;" class="mensaje-error">
+          <img src="{settings.LOGO_URL}" alt="Katira's Gymnastics" style="width:80px;height:auto;margin-bottom:15px;">
+          <h2>&#10008; Error al firmar</h2>
+          <p id="error-texto">No se pudo procesar la firma. Intente de nuevo.</p>
+          <button class="btn-reintentar" onclick="reintentar()">Volver a intentar</button>
         </div>
       </div>
     </div>
@@ -825,16 +836,30 @@ function firmar() {{
       document.getElementById('info-alumno').style.display = 'none';
       document.getElementById('pdf-container').style.display = 'none';
     }} else {{
-      alert('Error: ' + (data.mensaje || 'No se pudo procesar la firma. Intente de nuevo.'));
-      btn.disabled = false;
-      btn.textContent = 'Firmar y Aceptar';
+      showError(data.mensaje || 'No se pudo procesar la firma. Intente de nuevo.');
     }}
   }})
   .catch(() => {{
-    alert('Error de conexi\u00f3n. Verifique su internet e intente de nuevo.');
-    btn.disabled = false;
-    btn.textContent = 'Firmar y Aceptar';
+    showError('Error de conexi\u00f3n. Verifique su internet e intente de nuevo.');
   }});
+}}
+
+function showError(msg) {{
+  document.getElementById('error-texto').textContent = msg;
+  document.getElementById('mensaje-error').style.display = 'block';
+  document.querySelector('.firma-box').style.display = 'none';
+  document.getElementById('info-alumno').style.display = 'none';
+  document.getElementById('pdf-container').style.display = 'none';
+}}
+
+function reintentar() {{
+  document.getElementById('mensaje-error').style.display = 'none';
+  document.querySelector('.firma-box').style.display = '';
+  document.getElementById('info-alumno').style.display = '';
+  document.getElementById('pdf-container').style.display = '';
+  redimensionarCanvas();
+  document.getElementById('btn-firmar').disabled = true;
+  document.getElementById('btn-firmar').textContent = 'Firmar y Aceptar';
 }}
 
 function cargarDatos() {{
