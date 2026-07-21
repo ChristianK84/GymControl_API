@@ -1,6 +1,7 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
@@ -31,6 +32,16 @@ _DIA_MAP = {
     "sabado": 5, "sábado": 5, "sab": 5, "sáb": 5,
     "domingo": 6, "dom": 6,
 }
+
+_TZ_JUAREZ = ZoneInfo("America/Chihuahua")
+
+
+def now_juarez() -> datetime:
+    return datetime.now(_TZ_JUAREZ).replace(tzinfo=None)
+
+
+def today_juarez() -> date:
+    return now_juarez().date()
 
 
 def _parsear_dias(dias_incluidos: str) -> set[int]:
@@ -73,8 +84,9 @@ def _membresia_activa(alumno_id: int, db: Session) -> Optional[Membresia]:
     )
 
 
-def _validar_visita_extra(alumno_id: int, fecha: date, db: Session) -> Optional[Decimal]:
-    membresia = _membresia_activa(alumno_id, db)
+def _validar_visita_extra(alumno_id: int, fecha: date, db: Session, membresia: Optional[Membresia] = None) -> Optional[Decimal]:
+    if membresia is None:
+        membresia = _membresia_activa(alumno_id, db)
     if not membresia or not membresia.tipo_membresia:
         raise HTTPException(status_code=400, detail="El alumno no tiene una membresia activa")
 
@@ -91,8 +103,9 @@ def _validar_visita_extra(alumno_id: int, fecha: date, db: Session) -> Optional[
     return tipo.costo_dia_extra
 
 
-def _validar_bloqueo_impago(alumno_id: int, db: Session) -> None:
-    membresia = _membresia_activa(alumno_id, db)
+def _validar_bloqueo_impago(alumno_id: int, db: Session, membresia: Optional[Membresia] = None) -> None:
+    if membresia is None:
+        membresia = _membresia_activa(alumno_id, db)
     if not membresia or not membresia.tipo_membresia:
         return
 
@@ -162,33 +175,47 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
         )
 
     tipo = membresia.tipo_membresia
-    hoy = date.today()
+    hoy = today_juarez()
     dia_nombre = _DIA_NOMBRES[hoy.weekday()]
 
     dia_permitido = _validar_dia_permitido(hoy, tipo.dias_incluidos)
 
     if not dia_permitido:
+        if not tipo.permite_dias_extra or tipo.costo_dia_extra is None:
+            return AsistenciaScanResponse(
+                permitido=False, motivo="extra_no_permitido",
+                mensaje=f"Hoy ({dia_nombre}) no está incluido en el plan '{tipo.nombre}' "
+                        f"({tipo.dias_incluidos}). Este tipo de membresía no permite días extra.",
+            )
         es_extra = True
-        costo_extra_val = tipo.costo_dia_extra if tipo.costo_dia_extra is not None else Decimal("0")
+        costo_extra_val = tipo.costo_dia_extra
     else:
         es_extra = False
         costo_extra_val = Decimal("0")
 
-    if not es_extra and not membresia.pagado:
-        if tipo.bloquear_impago:
-            return AsistenciaScanResponse(
-                permitido=False, motivo="impago_bloqueado",
-                mensaje=f"Acceso denegado. La membresía '{tipo.nombre}' tiene un pago pendiente de "
-                        f"${membresia.costo_real:,.2f}.",
-            )
-        impago = True
-    else:
-        impago = False
+    if es_extra:
+        return AsistenciaScanResponse(
+            permitido=True, motivo="fuera_de_plan",
+            mensaje=f"Hoy ({dia_nombre}) no está incluido en el plan '{tipo.nombre}' "
+                    f"({tipo.dias_incluidos})." +
+                    (f" Costo extra: ${costo_extra_val:,.2f}." if costo_extra_val > 0 else ""),
+            costo_extra=costo_extra_val if costo_extra_val > 0 else None,
+        )
 
-    now = datetime.now()
+    if not membresia.pagado and tipo.bloquear_impago:
+        return AsistenciaScanResponse(
+            permitido=False, motivo="impago_bloqueado",
+            mensaje=f"Acceso denegado. La membresía '{tipo.nombre}' tiene un pago pendiente de "
+                    f"${membresia.costo_real:,.2f}.",
+        )
+
+    now = now_juarez()
+    inicio_hoy = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    fin_hoy = inicio_hoy + timedelta(days=1)
     existing = db.query(Asistencia).filter(
         Asistencia.alumno_id == payload.alumno_id,
-        Asistencia.fecha >= now.replace(hour=0, minute=0, second=0, microsecond=0),
+        Asistencia.fecha >= inicio_hoy,
+        Asistencia.fecha < fin_hoy,
         Asistencia.is_deleted == False,
     ).first()
 
@@ -203,15 +230,12 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
         maestro_id=payload.maestro_id,
         fecha=now,
         asistio=True,
-        es_dia_extra=es_extra,
-        costo_extra=costo_extra_val,
+        es_dia_extra=False,
+        costo_extra=Decimal("0"),
         registrado_por=current_user.id,
     )
-    if impago:
+    if not membresia.pagado:
         asistencia.notas = f"Asistencia registrada con alerta de impago: membresía '{tipo.nombre}' pendiente."
-    if es_extra:
-        notas_extra = f"Fuera de plan: {tipo.dias_incluidos}"
-        asistencia.notas = f"{asistencia.notas}; {notas_extra}" if asistencia.notas else notas_extra
 
     db.add(asistencia)
     db.commit()
@@ -222,17 +246,7 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
     result = _asistencia_base_query(db).filter(Asistencia.id == asistencia.id).first()
     result = _enriquecer_impago(result, db)
 
-    if es_extra:
-        return AsistenciaScanResponse(
-            permitido=True, motivo="fuera_de_plan",
-            mensaje=f"Hoy ({dia_nombre}) no está incluido en el plan '{tipo.nombre}' "
-                    f"({tipo.dias_incluidos})." +
-                    (f" Costo extra: ${costo_extra_val:,.2f}." if costo_extra_val > 0 else ""),
-            costo_extra=costo_extra_val if costo_extra_val > 0 else None,
-            asistencia=result,
-        )
-
-    if impago:
+    if not membresia.pagado:
         return AsistenciaScanResponse(
             permitido=True, motivo="impago_alerta",
             mensaje=f"Membresía '{tipo.nombre}' pendiente de pago (${membresia.costo_real:,.2f}). "
@@ -265,26 +279,35 @@ def create_asistencia(
 
     maestro_id = alumno.maestro_id
 
+    if payload.fecha.tzinfo is not None:
+        payload.fecha = payload.fecha.astimezone(_TZ_JUAREZ).replace(tzinfo=None)
+
+    fecha_date = payload.fecha.date() if isinstance(payload.fecha, datetime) else payload.fecha
+    inicio_dia = datetime(fecha_date.year, fecha_date.month, fecha_date.day)
+    fin_dia = inicio_dia + timedelta(days=1)
+
     existing = db.query(Asistencia).filter(
         Asistencia.alumno_id == payload.alumno_id,
-        Asistencia.fecha == payload.fecha,
+        Asistencia.fecha >= inicio_dia,
+        Asistencia.fecha < fin_dia,
         Asistencia.is_deleted == False,
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Ya existe registro para este alumno en esta fecha")
 
-    fecha_date = payload.fecha.date() if isinstance(payload.fecha, datetime) else payload.fecha
+    membresia = _membresia_activa(payload.alumno_id, db)
 
-    _validar_bloqueo_impago(payload.alumno_id, db)
-
-    costo_extra = _validar_visita_extra(payload.alumno_id, fecha_date, db)
+    costo_extra = _validar_visita_extra(payload.alumno_id, fecha_date, db, membresia)
 
     es_dia_extra = costo_extra is not None
     costo_final = costo_extra or Decimal("0")
 
+    if not es_dia_extra:
+        _validar_bloqueo_impago(payload.alumno_id, db, membresia)
+
     data = payload.model_dump()
     data["maestro_id"] = maestro_id
-    data["registrado_por"] = _maestro.id
+    data["registrado_por"] = _maestro.user_id
     asistencia = Asistencia(**data)
     asistencia.es_dia_extra = es_dia_extra
     asistencia.costo_extra = costo_final
@@ -305,6 +328,8 @@ def list_asistencias(
     maestro_id: int = Query(None),
     fecha_desde: datetime = Query(None),
     fecha_hasta: datetime = Query(None),
+    limit: int = Query(None, ge=1, le=1000),
+    offset: int = Query(None, ge=0),
     db: Session = Depends(get_db),
     _maestro=Depends(require_maestro),
     current_maestro: Maestro | None = Depends(get_current_maestro),
@@ -320,7 +345,12 @@ def list_asistencias(
         q = q.filter(Asistencia.fecha >= fecha_desde)
     if fecha_hasta:
         q = q.filter(Asistencia.fecha <= fecha_hasta)
-    results = q.order_by(Asistencia.fecha.desc(), Asistencia.id).all()
+    results = q.order_by(Asistencia.fecha.desc(), Asistencia.id)
+    if limit:
+        results = results.limit(limit)
+    if offset:
+        results = results.offset(offset)
+    results = results.all()
     for a in results:
         _enriquecer_impago(a, db)
     return results

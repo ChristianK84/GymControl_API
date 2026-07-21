@@ -70,6 +70,28 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
     )
 
 
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    token = create_access_token({"sub": str(current_user.id), "tv": current_user.token_version})
+    maestro_id = None
+    if current_user.role_id == 2:
+        maestro = db.query(Maestro).filter(
+            Maestro.user_id == current_user.id,
+            Maestro.is_deleted == False,
+            Maestro.is_active == True,
+        ).first()
+        if maestro:
+            maestro_id = maestro.id
+    return TokenResponse(
+        access_token=token,
+        user_id=current_user.id,
+        username=current_user.username,
+        full_name=current_user.full_name,
+        role_id=current_user.role_id,
+        maestro_id=maestro_id,
+    )
+
+
 @router.post("/logout")
 def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     audit_log(db, current_user.id, "LOGOUT", "auth", None, f"{current_user.username} cerró sesión")
