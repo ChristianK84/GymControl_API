@@ -307,7 +307,7 @@ def create_asistencia(
 
     data = payload.model_dump()
     data["maestro_id"] = maestro_id
-    data["registrado_por"] = _maestro.user_id
+    data["registrado_por"] = _maestro.id
     asistencia = Asistencia(**data)
     asistencia.es_dia_extra = es_dia_extra
     asistencia.costo_extra = costo_final
