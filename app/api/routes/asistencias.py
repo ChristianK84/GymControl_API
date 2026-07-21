@@ -193,16 +193,7 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
         es_extra = False
         costo_extra_val = Decimal("0")
 
-    if es_extra:
-        return AsistenciaScanResponse(
-            permitido=True, motivo="fuera_de_plan",
-            mensaje=f"Hoy ({dia_nombre}) no está incluido en el plan '{tipo.nombre}' "
-                    f"({tipo.dias_incluidos})." +
-                    (f" Costo extra: ${costo_extra_val:,.2f}." if costo_extra_val > 0 else ""),
-            costo_extra=costo_extra_val if costo_extra_val > 0 else None,
-        )
-
-    if not membresia.pagado and tipo.bloquear_impago:
+    if not es_extra and not membresia.pagado and tipo.bloquear_impago:
         return AsistenciaScanResponse(
             permitido=False, motivo="impago_bloqueado",
             mensaje=f"Acceso denegado. La membresía '{tipo.nombre}' tiene un pago pendiente de "
@@ -230,8 +221,8 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
         maestro_id=payload.maestro_id,
         fecha=now,
         asistio=True,
-        es_dia_extra=False,
-        costo_extra=Decimal("0"),
+        es_dia_extra=es_extra,
+        costo_extra=costo_extra_val,
         registrado_por=current_user.id,
     )
     if not membresia.pagado:
@@ -245,6 +236,15 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
 
     result = _asistencia_base_query(db).filter(Asistencia.id == asistencia.id).first()
     result = _enriquecer_impago(result, db)
+
+    if es_extra:
+        return AsistenciaScanResponse(
+            permitido=True, motivo="fuera_de_plan",
+            mensaje=f"Asistencia registrada — {alumno.nombrecompleto} {alumno.apellido_paterno}. "
+                    f"Recuerda cobrar ${costo_extra_val:,.2f} extra por esta clase.",
+            costo_extra=costo_extra_val,
+            asistencia=result,
+        )
 
     if not membresia.pagado:
         return AsistenciaScanResponse(
