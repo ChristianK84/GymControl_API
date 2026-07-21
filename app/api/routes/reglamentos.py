@@ -1,6 +1,7 @@
 import io
 import json
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -168,6 +169,7 @@ def generar_links(
 
     base_url = str(request.base_url).rstrip("/")
     enviados = 0
+    emails_data = []
 
     for alumno in alumnos:
         if not alumno.tutor:
@@ -224,63 +226,96 @@ def generar_links(
         email_tutor = tutor_obj.email
 
         if email_tutor:
-            nombre_tutor_local = nombre_tutor
-            alumno_nombre_local = f"{alumno.nombrecompleto} {alumno.apellido_paterno}"
-            reg_titulo_local = reglamento.titulo
-            reg_version_local = reglamento.version
-            link_final = link
-            logo_url = LOGO_URL
-
-            def enviar():
-                try:
-                    html = f"""
-                    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-                        <div style="text-align:center;padding:20px 0;">
-                            <img src="{logo_url}" alt="Katira's Gymnastics" style="width:120px;">
-                            <h1 style="color:#0d47a1;margin:10px 0 0;">Katira's Gymnastics</h1>
-                        </div>
-                        <div style="background:#f5f5f5;border-radius:8px;padding:25px;margin:15px 0;">
-                            <p style="font-size:16px;color:#333;">Hola <strong>{nombre_tutor_local}</strong>,</p>
-                            <p style="font-size:14px;color:#555;">
-                                Te informamos que el reglamento interno de nuestra academia ha sido actualizado
-                                y necesita ser firmado por el tutor del alumno(a).
-                            </p>
-                            <p style="font-size:14px;color:#555;">
-                                <strong>Alumno(a):</strong> {alumno_nombre_local}<br>
-                                <strong>Documento:</strong> {reg_titulo_local} (v{reg_version_local})
-                            </p>
-                            <div style="text-align:center;margin:25px 0;">
-                                <a href="{link_final}" style="display:inline-block;background:#0d47a1;color:white;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;">
-                                    Firmar Reglamento
-                                </a>
-                            </div>
-                            <p style="font-size:12px;color:#999;">
-                                Este link expirar&aacute; en 30 d&iacute;as. Si no puede acceder, copie y pegue
-                                el siguiente enlace en su navegador:<br>
-                                <span style="word-break:break-all;color:#666;">{link_final}</span>
-                            </p>
-                        </div>
-                        <p style="text-align:center;font-size:11px;color:#aaa;">
-                            Katira's Gymnastics &mdash; Este es un mensaje autom&aacute;tico.
-                        </p>
-                    </div>
-                    """
-                    enviar_email_html(
-                        destinatario_email=email_tutor,
-                        asunto=f"Katira's Gymnastics - Firma de Reglamento ({alumno_nombre_local})",
-                        cuerpo_html=html,
-                    )
-                except Exception as e:
-                    logger.error("Error al enviar email a %s: %s", email_tutor, e)
-
-            background_tasks.add_task(enviar)
+            emails_data.append({
+                'email': email_tutor,
+                'nombre_tutor': nombre_tutor,
+                'nombre_alumno': f"{alumno.nombrecompleto} {alumno.apellido_paterno}",
+                'link': link,
+            })
             enviados += 1
+
+    if emails_data:
+        background_tasks.add_task(enviar_lote, emails_data, reglamento.titulo, reglamento.version)
 
     audit_log(
         db, _admin.id, "GENERAR_LINKS", "reglamento", reglamento.id,
-        f"Generados links para {len(alumnos)} alumnos, {enviados} emails enviados"
+        f"Generados links para {len(alumnos)} alumnos, {enviados} emails intentados"
     )
     return GenerarLinksResponse(enviados=enviados, total=len(alumnos))
+
+
+def enviar_lote(emails_data, reg_titulo, reg_version):
+    try:
+        logo_url = LOGO_URL
+        fallidos = list(emails_data)
+        enviados = []
+
+        for attempt in range(3):
+            if not fallidos:
+                break
+            if attempt > 0:
+                time.sleep(0.5)
+                logger.info("Reintento %d/2 para %d emails...", attempt, len(fallidos))
+
+            batch = list(fallidos)
+            fallidos = []
+
+            for i, data in enumerate(batch):
+                if i > 0:
+                    time.sleep(0.5)
+
+                html = f"""
+                <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+                    <div style="text-align:center;padding:20px 0;">
+                        <img src="{logo_url}" alt="Katira's Gymnastics" style="width:120px;">
+                        <h1 style="color:#0d47a1;margin:10px 0 0;">Katira's Gymnastics</h1>
+                    </div>
+                    <div style="background:#f5f5f5;border-radius:8px;padding:25px;margin:15px 0;">
+                        <p style="font-size:16px;color:#333;">Hola <strong>{data['nombre_tutor']}</strong>,</p>
+                        <p style="font-size:14px;color:#555;">
+                            Te informamos que el reglamento interno de nuestra academia ha sido actualizado
+                            y necesita ser firmado por el tutor del alumno(a).
+                        </p>
+                        <p style="font-size:14px;color:#555;">
+                            <strong>Alumno(a):</strong> {data['nombre_alumno']}<br>
+                            <strong>Documento:</strong> {reg_titulo} (v{reg_version})
+                        </p>
+                        <div style="text-align:center;margin:25px 0;">
+                            <a href="{data['link']}" style="display:inline-block;background:#0d47a1;color:white;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;">
+                                Firmar Reglamento
+                            </a>
+                        </div>
+                        <p style="font-size:12px;color:#999;">
+                            Este link expirar&aacute; en 30 d&iacute;as. Si no puede acceder, copie y pegue
+                            el siguiente enlace en su navegador:<br>
+                            <span style="word-break:break-all;color:#666;">{data['link']}</span>
+                        </p>
+                    </div>
+                    <p style="text-align:center;font-size:11px;color:#aaa;">
+                        Katira's Gymnastics &mdash; Este es un mensaje autom&aacute;tico.
+                    </p>
+                </div>
+                """
+
+                ok = enviar_email_html(
+                    destinatario_email=data['email'],
+                    asunto=f"Katira's Gymnastics - Firma de Reglamento ({data['nombre_alumno']})",
+                    cuerpo_html=html,
+                )
+
+                if ok:
+                    enviados.append(data)
+                    logger.info("[Pass %d] Email enviado a %s", attempt + 1, data['email'])
+                else:
+                    fallidos.append(data)
+                    logger.warning("[Pass %d] Fallo envio a %s", attempt + 1, data['email'])
+
+        total = len(enviados) + len(fallidos)
+        logger.info("=== RESUMEN ENVIO MASIVO === Enviados: %d/%d, Fallidos: %d", len(enviados), total, len(fallidos))
+        for f in fallidos:
+            logger.warning("FALLO FINAL: %s (%s)", f['email'], f['nombre_tutor'])
+    except Exception as e:
+        logger.error("Error critico en enviar_lote: %s", e, exc_info=True)
 
 
 @router_admin.get("/firmas", response_model=list[FirmaReglamentoResponse])
@@ -548,6 +583,11 @@ def procesar_firma(
         firma.url_pdf_firmado_cloudinary = pdf_result["secure_url"]
         firma.ip_address = request.client.host if request.client else None
         db.commit()
+
+        audit_log(
+            db, None, "FIRMA", "reglamento", firma.id,
+            f"Tutor {tutor.nombre} {tutor.apellido_paterno} firmó reglamento {reglamento.titulo} del alumno {alumno.nombrecompleto} {alumno.apellido_paterno}"
+        )
 
         if tutor.email:
             tutor_nombre_local = f"{tutor.nombre} {tutor.apellido_paterno}"
