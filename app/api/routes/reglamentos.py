@@ -549,12 +549,18 @@ def procesar_firma(
             text_x = sig_x + 2
             last_page.insert_text(
                 fitz.Point(text_x, y_bottom + 13),
-                f"Firmado por: {tutor.nombre} {tutor.apellido_paterno}",
+                f"Alumno(a): {alumno.nombrecompleto} {alumno.apellido_paterno}",
                 fontsize=10,
                 color=(0.2, 0.2, 0.2),
             )
             last_page.insert_text(
                 fitz.Point(text_x, y_bottom + 25),
+                f"Firmado por: {tutor.nombre} {tutor.apellido_paterno}",
+                fontsize=10,
+                color=(0.2, 0.2, 0.2),
+            )
+            last_page.insert_text(
+                fitz.Point(text_x, y_bottom + 37),
                 f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
                 fontsize=9,
                 color=(0.4, 0.4, 0.4),
@@ -569,6 +575,7 @@ def procesar_firma(
             sig_img = io.BytesIO(sig_bytes)
             sig_pdf.image(sig_img, x=10, y=10, w=80)
             sig_pdf.set_font("Helvetica", "", 10)
+            sig_pdf.cell(0, 10, text=f"Alumno(a): {alumno.nombrecompleto} {alumno.apellido_paterno}", new_x="LMARGIN", new_y="NEXT")
             sig_pdf.cell(0, 10, text=f"Firmado por: {tutor.nombre} {tutor.apellido_paterno}", new_x="LMARGIN", new_y="NEXT")
             sig_pdf.cell(0, 10, text=f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}", new_x="LMARGIN", new_y="NEXT")
             sig_page_bytes = sig_pdf.output()

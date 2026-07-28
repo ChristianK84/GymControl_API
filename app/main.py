@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-from app.api.routes import alumnos, app_version, asistencias, audit_logs, auth, estados_membresia, health, maestros, membresias, reglamentos, reportes, roles, tipos_membresia, transacciones, users
+from app.api.routes import alumnos, app_version, asistencias, audit_logs, auth, estados_membresia, health, inscripciones, maestros, membresias, reglamentos, reportes, roles, tipos_membresia, transacciones, users
 from sqlalchemy import text
 
 from app.core.config import settings
@@ -24,6 +24,7 @@ from app.models import (  # noqa: F401 — registra todos los modelos en Base.me
     EstadoMembresia,
     FichaMedica,
     FirmaReglamento,
+    Inscripcion,
     Maestro,
     Membresia,
     Reglamento,
@@ -96,6 +97,7 @@ app.include_router(reportes.router, prefix=settings.API_V1_PREFIX)
 app.include_router(app_version.router, prefix=settings.API_V1_PREFIX)
 app.include_router(reglamentos.router_admin, prefix=settings.API_V1_PREFIX)
 app.include_router(reglamentos.router_public, prefix=settings.API_V1_PREFIX)
+app.include_router(inscripciones.router, prefix=settings.API_V1_PREFIX)
 app.include_router(transacciones.router, prefix=settings.API_V1_PREFIX)
 
 

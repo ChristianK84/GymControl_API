@@ -45,3 +45,4 @@ class Alumno(Base):
     firmas_reglamento: Mapped[list["FirmaReglamento"]] = relationship(
         "FirmaReglamento", back_populates="alumno"
     )
+    inscripciones: Mapped[list["Inscripcion"]] = relationship("Inscripcion", back_populates="alumno")
