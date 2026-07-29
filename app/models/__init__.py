@@ -1,7 +1,6 @@
 from app.models.alumnos import Alumno
 from app.models.app_versions import AppVersion
 from app.models.asistencias import Asistencia
-from app.models.inscripciones import Inscripcion
 from app.models.audit_logs import AuditLog
 from app.models.catalogs import EstadoMembresia, Rol
 from app.models.contacto_emergencia import ContactoEmergencia
@@ -21,7 +20,6 @@ __all__ = [
     "ContactoEmergencia",
     "EstadoMembresia",
     "FichaMedica",
-    "Inscripcion",
     "FirmaReglamento",
     "Maestro",
     "Membresia",
