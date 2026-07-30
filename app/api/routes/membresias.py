@@ -56,6 +56,8 @@ def create_membresia(
     current_maestro: Maestro | None = Depends(get_current_maestro),
     current_user: User = Depends(get_current_user),
 ):
+    _actualizar_estados_vencidos(db)
+
     alumno = db.query(Alumno).filter(
         Alumno.id == payload.alumno_id, Alumno.is_deleted == False
     ).first()
@@ -69,6 +71,18 @@ def create_membresia(
     ).first()
     if not tipo:
         raise HTTPException(status_code=400, detail="Tipo de membresia no encontrado")
+
+    if payload.tipo_membresia_id == 1:
+        activa = db.query(Membresia).filter(
+            Membresia.alumno_id == payload.alumno_id,
+            Membresia.tipo_membresia_id == 1,
+            Membresia.estado_id == ACTIVA,
+        ).first()
+        if activa:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El alumno ya tiene una inscripción activa vigente hasta {activa.fecha_vencimiento.isoformat()}"
+            )
 
     membresia = Membresia(
         alumno_id=payload.alumno_id,

@@ -45,6 +45,8 @@ class UserResponse(BaseModel):
     role_id: int
     is_active: bool
     is_deleted: bool
+    failed_login_attempts: int = 0
+    locked_until: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
