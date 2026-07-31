@@ -11,12 +11,14 @@ class TipoMembresiaCreate(BaseModel):
     costo_base: Decimal = Field(max_digits=10, decimal_places=2)
     duracion_dias: int
     dias_incluidos: str = Field(max_length=20)
+    limite_dias_semana: Optional[int] = Field(default=None, ge=1, le=7)
     dias_por_semana: Optional[int] = None
     horas_por_clase: Optional[int] = None
     nivel_competitivo: bool = False
     color: Optional[str] = None
     permite_dias_extra: bool = False
     costo_dia_extra: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
+    costo_dia_extra_sabado: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
     bloquear_impago: bool = False
 
     @field_validator("dias_incluidos")
@@ -34,6 +36,7 @@ class TipoMembresiaUpdate(BaseModel):
     costo_base: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
     duracion_dias: Optional[int] = None
     dias_incluidos: Optional[str] = None
+    limite_dias_semana: Optional[int] = Field(default=None, ge=1, le=7)
     dias_por_semana: Optional[int] = None
     horas_por_clase: Optional[int] = None
     nivel_competitivo: Optional[bool] = None
@@ -41,6 +44,7 @@ class TipoMembresiaUpdate(BaseModel):
     is_active: Optional[bool] = None
     permite_dias_extra: Optional[bool] = None
     costo_dia_extra: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
+    costo_dia_extra_sabado: Optional[Decimal] = Field(default=None, max_digits=10, decimal_places=2)
     bloquear_impago: Optional[bool] = None
 
     @field_validator("dias_incluidos")
@@ -61,12 +65,14 @@ class TipoMembresiaResponse(BaseModel):
     costo_base: Decimal
     duracion_dias: int
     dias_incluidos: str
+    limite_dias_semana: Optional[int]
     dias_por_semana: Optional[int]
     horas_por_clase: Optional[int]
     nivel_competitivo: bool
     color: Optional[str]
     permite_dias_extra: bool
     costo_dia_extra: Optional[Decimal]
+    costo_dia_extra_sabado: Optional[Decimal]
     bloquear_impago: bool
     is_active: bool
     is_deleted: bool

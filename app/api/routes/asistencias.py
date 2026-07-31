@@ -78,29 +78,61 @@ def _membresia_activa(alumno_id: int, db: Session) -> Optional[Membresia]:
         .filter(
             Membresia.alumno_id == alumno_id,
             Membresia.estado_id.in_([ACTIVA, PENDIENTE]),
+            Membresia.tipo_membresia_id != 1,
         )
         .order_by(Membresia.estado_id)
         .first()
     )
 
 
-def _validar_visita_extra(alumno_id: int, fecha: date, db: Session, membresia: Optional[Membresia] = None) -> Optional[Decimal]:
+def _contar_asistencias_semana(alumno_id: int, fecha: date, db: Session) -> int:
+    start_of_week = fecha - timedelta(days=fecha.weekday())
+    end_of_week = start_of_week + timedelta(days=7)
+    return db.query(Asistencia).filter(
+        Asistencia.alumno_id == alumno_id,
+        Asistencia.fecha >= datetime.combine(start_of_week, datetime.min.time()),
+        Asistencia.fecha < datetime.combine(end_of_week, datetime.min.time()),
+        Asistencia.is_deleted == False,
+    ).count()
+
+
+def _validar_visita_extra(alumno_id: int, fecha: date, db: Session, membresia: Optional[Membresia] = None):
     if membresia is None:
         membresia = _membresia_activa(alumno_id, db)
     if not membresia or not membresia.tipo_membresia:
         raise HTTPException(status_code=400, detail="El alumno no tiene una membresia activa")
 
     tipo = membresia.tipo_membresia
-    if _validar_dia_permitido(fecha, tipo.dias_incluidos):
-        return None
 
-    if not tipo.permite_dias_extra or tipo.costo_dia_extra is None:
+    if fecha.weekday() == 5:
+        if tipo.dias_incluidos == "sabado":
+            return None
+        if tipo.costo_dia_extra_sabado is not None:
+            return tipo.costo_dia_extra_sabado
         raise HTTPException(
             status_code=403,
-            detail=f"Este dia no esta incluido en la membresia '{tipo.nombre}' ({tipo.dias_incluidos})",
+            detail=f"Los sabados no estan incluidos en la membresia '{tipo.nombre}'",
         )
 
-    return tipo.costo_dia_extra
+    if not _validar_dia_permitido(fecha, tipo.dias_incluidos):
+        if not tipo.permite_dias_extra or tipo.costo_dia_extra is None:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Este dia no esta incluido en la membresia '{tipo.nombre}' ({tipo.dias_incluidos})",
+            )
+        return tipo.costo_dia_extra
+
+    if tipo.limite_dias_semana is not None:
+        count = _contar_asistencias_semana(alumno_id, fecha, db)
+        if count >= tipo.limite_dias_semana:
+            if tipo.permite_dias_extra and tipo.costo_dia_extra is not None:
+                return tipo.costo_dia_extra
+            raise HTTPException(
+                status_code=403,
+                detail=f"Ha excedido el limite de {tipo.limite_dias_semana} dias por semana para '{tipo.nombre}'",
+            )
+
+    return None
 
 
 def _validar_bloqueo_impago(alumno_id: int, db: Session, membresia: Optional[Membresia] = None) -> None:
@@ -178,20 +210,15 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
     hoy = today_juarez()
     dia_nombre = _DIA_NOMBRES[hoy.weekday()]
 
-    dia_permitido = _validar_dia_permitido(hoy, tipo.dias_incluidos)
+    try:
+        costo_extra_val = _validar_visita_extra(payload.alumno_id, hoy, db, membresia)
+    except HTTPException as e:
+        return AsistenciaScanResponse(
+            permitido=False, motivo="extra_no_permitido",
+            mensaje=e.detail,
+        )
 
-    if not dia_permitido:
-        if not tipo.permite_dias_extra or tipo.costo_dia_extra is None:
-            return AsistenciaScanResponse(
-                permitido=False, motivo="extra_no_permitido",
-                mensaje=f"Hoy ({dia_nombre}) no está incluido en el plan '{tipo.nombre}' "
-                        f"({tipo.dias_incluidos}). Este tipo de membresía no permite días extra.",
-            )
-        es_extra = True
-        costo_extra_val = tipo.costo_dia_extra
-    else:
-        es_extra = False
-        costo_extra_val = Decimal("0")
+    es_extra = costo_extra_val is not None and costo_extra_val > 0
 
     if not es_extra and not membresia.pagado and tipo.bloquear_impago:
         return AsistenciaScanResponse(
@@ -222,7 +249,7 @@ def scan_asistencia(payload: AsistenciaScanRequest, db: Session = Depends(get_db
         fecha=now,
         asistio=True,
         es_dia_extra=es_extra,
-        costo_extra=costo_extra_val,
+        costo_extra=costo_extra_val or Decimal("0"),
         registrado_por=current_user.id,
     )
     if not membresia.pagado:
