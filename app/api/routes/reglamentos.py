@@ -16,7 +16,7 @@ from app.core.audit import audit_log
 from app.core.cloudinary_service import upload_file
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.email import enviar_email_html
+from app.core.email import _obtener_access_token, enviar_email_html
 from app.models import Alumno, Maestro, Tutor, User
 from app.models.reglamentos import FirmaReglamento, Reglamento
 from app.schemas.reglamentos import (
@@ -217,8 +217,6 @@ def generar_links(
             )
             db.add(nueva_firma)
 
-        db.commit()
-
         link = f"{base_url}/api/v1/reglamento/firma?token={token}"
 
         tutor_obj = alumno.tutor
@@ -234,6 +232,8 @@ def generar_links(
             })
             enviados += 1
 
+    db.commit()
+
     if emails_data:
         background_tasks.add_task(enviar_lote, emails_data, reglamento.titulo, reglamento.version)
 
@@ -247,6 +247,12 @@ def generar_links(
 def enviar_lote(emails_data, reg_titulo, reg_version):
     try:
         logo_url = LOGO_URL
+
+        access_token = _obtener_access_token()
+        if not access_token:
+            logger.error("No se pudo obtener access token OAuth2 para el lote")
+            return
+
         fallidos = list(emails_data)
         enviados = []
 
@@ -264,51 +270,56 @@ def enviar_lote(emails_data, reg_titulo, reg_version):
                 if i > 0:
                     time.sleep(0.5)
 
-                html = f"""
-                <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-                    <div style="text-align:center;padding:20px 0;">
-                        <img src="{logo_url}" alt="Katira's Gymnastics" style="width:120px;">
-                        <h1 style="color:#0d47a1;margin:10px 0 0;">Katira's Gymnastics</h1>
-                    </div>
-                    <div style="background:#f5f5f5;border-radius:8px;padding:25px;margin:15px 0;">
-                        <p style="font-size:16px;color:#333;">Hola <strong>{data['nombre_tutor']}</strong>,</p>
-                        <p style="font-size:14px;color:#555;">
-                            Te informamos que el reglamento interno de nuestra academia ha sido actualizado
-                            y necesita ser firmado por el tutor del alumno(a).
-                        </p>
-                        <p style="font-size:14px;color:#555;">
-                            <strong>Alumno(a):</strong> {data['nombre_alumno']}<br>
-                            <strong>Documento:</strong> {reg_titulo} (v{reg_version})
-                        </p>
-                        <div style="text-align:center;margin:25px 0;">
-                            <a href="{data['link']}" style="display:inline-block;background:#0d47a1;color:white;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;">
-                                Firmar Reglamento
-                            </a>
+                try:
+                    html = f"""
+                    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+                        <div style="text-align:center;padding:20px 0;">
+                            <img src="{logo_url}" alt="Katira's Gymnastics" style="width:120px;">
+                            <h1 style="color:#0d47a1;margin:10px 0 0;">Katira's Gymnastics</h1>
                         </div>
-                        <p style="font-size:12px;color:#999;">
-                            Este link expirar&aacute; en 30 d&iacute;as. Si no puede acceder, copie y pegue
-                            el siguiente enlace en su navegador:<br>
-                            <span style="word-break:break-all;color:#666;">{data['link']}</span>
+                        <div style="background:#f5f5f5;border-radius:8px;padding:25px;margin:15px 0;">
+                            <p style="font-size:16px;color:#333;">Hola <strong>{data['nombre_tutor']}</strong>,</p>
+                            <p style="font-size:14px;color:#555;">
+                                Te informamos que el reglamento interno de nuestra academia ha sido actualizado
+                                y necesita ser firmado por el tutor del alumno(a).
+                            </p>
+                            <p style="font-size:14px;color:#555;">
+                                <strong>Alumno(a):</strong> {data['nombre_alumno']}<br>
+                                <strong>Documento:</strong> {reg_titulo} (v{reg_version})
+                            </p>
+                            <div style="text-align:center;margin:25px 0;">
+                                <a href="{data['link']}" style="display:inline-block;background:#0d47a1;color:white;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;">
+                                    Firmar Reglamento
+                                </a>
+                            </div>
+                            <p style="font-size:12px;color:#999;">
+                                Este link expirar&aacute; en 30 d&iacute;as. Si no puede acceder, copie y pegue
+                                el siguiente enlace en su navegador:<br>
+                                <span style="word-break:break-all;color:#666;">{data['link']}</span>
+                            </p>
+                        </div>
+                        <p style="text-align:center;font-size:11px;color:#aaa;">
+                            Katira's Gymnastics &mdash; Este es un mensaje autom&aacute;tico.
                         </p>
                     </div>
-                    <p style="text-align:center;font-size:11px;color:#aaa;">
-                        Katira's Gymnastics &mdash; Este es un mensaje autom&aacute;tico.
-                    </p>
-                </div>
-                """
+                    """
 
-                ok = enviar_email_html(
-                    destinatario_email=data['email'],
-                    asunto=f"Katira's Gymnastics - Firma de Reglamento ({data['nombre_alumno']})",
-                    cuerpo_html=html,
-                )
+                    ok = enviar_email_html(
+                        destinatario_email=data['email'],
+                        asunto=f"Katira's Gymnastics - Firma de Reglamento ({data['nombre_alumno']})",
+                        cuerpo_html=html,
+                        access_token=access_token,
+                    )
 
-                if ok:
-                    enviados.append(data)
-                    logger.info("[Pass %d] Email enviado a %s", attempt + 1, data['email'])
-                else:
+                    if ok:
+                        enviados.append(data)
+                        logger.info("[Pass %d] Email enviado a %s", attempt + 1, data['email'])
+                    else:
+                        fallidos.append(data)
+                        logger.warning("[Pass %d] Fallo envio a %s", attempt + 1, data['email'])
+                except Exception as exc:
                     fallidos.append(data)
-                    logger.warning("[Pass %d] Fallo envio a %s", attempt + 1, data['email'])
+                    logger.warning("[Pass %d] Error en envio a %s: %s", attempt + 1, data['email'], exc)
 
         total = len(enviados) + len(fallidos)
         logger.info("=== RESUMEN ENVIO MASIVO === Enviados: %d/%d, Fallidos: %d", len(enviados), total, len(fallidos))

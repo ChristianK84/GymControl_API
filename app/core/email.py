@@ -51,12 +51,14 @@ def enviar_recibo_email(
     cuerpo_html: str,
     pdf_bytes: bytes,
     pdf_filename: str = "Recibo_Membresia.pdf",
+    access_token: str | None = None,
 ) -> bool:
     if not settings.GMAIL_CLIENT_ID or not settings.GMAIL_REFRESH_TOKEN or not settings.EMAIL_FROM:
         logger.warning("Gmail OAuth no configurado (GMAIL_CLIENT_ID, GMAIL_REFRESH_TOKEN o EMAIL_FROM vacios)")
         return False
 
-    access_token = _obtener_access_token()
+    if access_token is None:
+        access_token = _obtener_access_token()
     if not access_token:
         logger.error("No se pudo obtener access token OAuth2")
         return False
@@ -105,18 +107,21 @@ def enviar_recibo_email(
 
     except Exception as exc:
         logger.warning("Error al enviar recibo por email a %s: %s", destinatario_email, exc)
+        return False
 
 
 def enviar_email_html(
     destinatario_email: str,
     asunto: str,
     cuerpo_html: str,
+    access_token: str | None = None,
 ) -> bool:
     if not settings.GMAIL_CLIENT_ID or not settings.GMAIL_REFRESH_TOKEN or not settings.EMAIL_FROM:
         logger.warning("Gmail OAuth no configurado")
         return False
 
-    access_token = _obtener_access_token()
+    if access_token is None:
+        access_token = _obtener_access_token()
     if not access_token:
         logger.error("No se pudo obtener access token OAuth2")
         return False
