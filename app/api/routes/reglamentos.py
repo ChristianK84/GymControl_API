@@ -169,6 +169,7 @@ def generar_links(
 
     base_url = str(request.base_url).rstrip("/")
     enviados = 0
+    ya_firmados = 0
     emails_data = []
 
     for alumno in alumnos:
@@ -194,6 +195,7 @@ def generar_links(
         if firma_existente:
             if firma_existente.fecha_firma:
                 logger.info("Alumno %d ya firmó, saltando", alumno_id)
+                ya_firmados += 1
                 continue
             token_usado_anterior = firma_existente.token_usado
             payload_viejo = _decodificar_token(token_usado_anterior)
@@ -241,7 +243,7 @@ def generar_links(
         db, _admin.id, "GENERAR_LINKS", "reglamento", reglamento.id,
         f"Generados links para {len(alumnos)} alumnos, {enviados} emails intentados"
     )
-    return GenerarLinksResponse(enviados=enviados, total=len(alumnos))
+    return GenerarLinksResponse(enviados=enviados, total=len(alumnos), ya_firmados=ya_firmados)
 
 
 def enviar_lote(emails_data, reg_titulo, reg_version):
@@ -340,6 +342,7 @@ def listar_firmas(
     q = (
         db.query(FirmaReglamento)
         .options(
+            joinedload(FirmaReglamento.reglamento),
             joinedload(FirmaReglamento.alumno),
             joinedload(FirmaReglamento.tutor),
         )
@@ -360,11 +363,13 @@ def listar_firmas(
             continue
         alumno_nombre = f"{f.alumno.nombrecompleto} {f.alumno.apellido_paterno}" if f.alumno else None
         tutor_nombre = f"{f.tutor.nombre} {f.tutor.apellido_paterno}" if f.tutor else None
+        reglamento_titulo = f"{f.reglamento.titulo} (v{f.reglamento.version})" if f.reglamento else None
 
         result.append(
             FirmaReglamentoResponse(
                 id=f.id,
                 reglamento_id=f.reglamento_id,
+                reglamento_titulo=reglamento_titulo,
                 alumno_id=f.alumno_id,
                 tutor_id=f.tutor_id,
                 alumno_nombre=alumno_nombre,
@@ -387,7 +392,11 @@ def firmas_por_alumno(
 ):
     firmas = (
         db.query(FirmaReglamento)
-        .options(joinedload(FirmaReglamento.alumno), joinedload(FirmaReglamento.tutor))
+        .options(
+            joinedload(FirmaReglamento.reglamento),
+            joinedload(FirmaReglamento.alumno),
+            joinedload(FirmaReglamento.tutor),
+        )
         .filter(
             FirmaReglamento.alumno_id == alumno_id,
             FirmaReglamento.is_deleted == False,
@@ -400,11 +409,13 @@ def firmas_por_alumno(
         est = _obtener_estado(f)
         alumno_nombre = f"{f.alumno.nombrecompleto} {f.alumno.apellido_paterno}" if f.alumno else None
         tutor_nombre = f"{f.tutor.nombre} {f.tutor.apellido_paterno}" if f.tutor else None
+        reglamento_titulo = f"{f.reglamento.titulo} (v{f.reglamento.version})" if f.reglamento else None
 
         result.append(
             FirmaReglamentoResponse(
                 id=f.id,
                 reglamento_id=f.reglamento_id,
+                reglamento_titulo=reglamento_titulo,
                 alumno_id=f.alumno_id,
                 tutor_id=f.tutor_id,
                 alumno_nombre=alumno_nombre,

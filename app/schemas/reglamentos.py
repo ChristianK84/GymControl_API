@@ -42,11 +42,13 @@ class GenerarLinksPayload(BaseModel):
 class GenerarLinksResponse(BaseModel):
     enviados: int
     total: int
+    ya_firmados: int = 0
 
 
 class FirmaReglamentoResponse(BaseModel):
     id: int
     reglamento_id: int
+    reglamento_titulo: Optional[str] = None
     alumno_id: int
     tutor_id: int
     alumno_nombre: Optional[str] = None
