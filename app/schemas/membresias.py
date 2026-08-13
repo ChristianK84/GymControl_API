@@ -44,6 +44,17 @@ class MembresiaAlumnoInfo(BaseModel):
     apellido_materno: Optional[str]
     rama: str
     fotografia: Optional[str] = None
+    tutor: Optional["MembresiaTutorInfo"] = None
+
+    model_config = {"from_attributes": True}
+
+
+class MembresiaTutorInfo(BaseModel):
+    id: int
+    nombre: str
+    apellido_paterno: str
+    telefono: str
+    email: str
 
     model_config = {"from_attributes": True}
 

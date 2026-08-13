@@ -10,6 +10,7 @@ class ReglamentoCreate(BaseModel):
     version: str = Field(max_length=20)
     url_pdf_cloudinary: str = Field(max_length=500)
     cloudinary_public_id: str = Field(max_length=200)
+    requires_firma: bool = True
 
 
 class ReglamentoUpdate(BaseModel):
@@ -17,6 +18,7 @@ class ReglamentoUpdate(BaseModel):
     descripcion: Optional[str] = Field(default=None, max_length=1000)
     version: Optional[str] = Field(default=None, max_length=20)
     is_active: Optional[bool] = None
+    requires_firma: Optional[bool] = None
     url_pdf_cloudinary: Optional[str] = Field(default=None, max_length=500)
     cloudinary_public_id: Optional[str] = Field(default=None, max_length=200)
 
@@ -27,6 +29,7 @@ class ReglamentoResponse(BaseModel):
     descripcion: Optional[str]
     version: str
     url_pdf_cloudinary: str
+    requires_firma: bool
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -49,12 +52,15 @@ class FirmaReglamentoResponse(BaseModel):
     id: int
     reglamento_id: int
     reglamento_titulo: Optional[str] = None
+    requires_firma: bool = True
+    url_pdf_cloudinary: Optional[str] = None
     alumno_id: int
     tutor_id: int
     alumno_nombre: Optional[str] = None
     tutor_nombre: Optional[str] = None
     url_pdf_firmado_cloudinary: Optional[str] = None
     fecha_firma: Optional[datetime] = None
+    fecha_lectura: Optional[datetime] = None
     expira_en: datetime
     estado: str
     created_at: datetime
@@ -69,6 +75,7 @@ class FirmarPayload(BaseModel):
 
 class ValidarTokenResponse(BaseModel):
     valido: bool
+    requires_firma: bool = True
     alumno_nombre: Optional[str] = None
     tutor_nombre: Optional[str] = None
     tutor_telefono: Optional[str] = None
@@ -77,5 +84,6 @@ class ValidarTokenResponse(BaseModel):
     version: Optional[str] = None
     url_pdf: Optional[str] = None
     ya_firmado: bool = False
+    ya_leido: bool = False
     expirado: bool = False
     mensaje: Optional[str] = None

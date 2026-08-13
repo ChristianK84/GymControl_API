@@ -2,6 +2,7 @@ import logging
 from datetime import date, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_maestro, get_current_user, require_maestro
@@ -28,7 +29,7 @@ CANCELADA = 3
 
 def _membresia_base_query(db: Session):
     return db.query(Membresia).options(
-        joinedload(Membresia.alumno),
+        joinedload(Membresia.alumno).joinedload(Alumno.tutor),
         joinedload(Membresia.tipo_membresia),
         joinedload(Membresia.estado),
     )
@@ -400,6 +401,56 @@ def reenviar_recibo(
               f"{current_user.username} reenvió recibo de membresía {tipo.nombre} de {alumno.nombrecompleto} {alumno.apellido_paterno} a {tutor.email}")
 
     return {"message": f"Recibo programado para envio a {tutor.email}"}
+
+
+@router.get("/{membresia_id}/recibo.pdf")
+def descargar_recibo(
+    membresia_id: int,
+    db: Session = Depends(get_db),
+    _maestro=Depends(require_maestro),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+    current_user: User = Depends(get_current_user),
+):
+    membresia = _autorizar_membresia(membresia_id, db, current_maestro)
+
+    alumno = db.query(Alumno).filter(Alumno.id == membresia.alumno_id, Alumno.is_deleted == False).first()
+    tutor = db.query(Tutor).filter(Tutor.alumno_id == alumno.id).first()
+    if not tutor:
+        raise HTTPException(status_code=400, detail="El alumno no tiene tutor registrado")
+
+    tipo = db.query(TipoMembresia).filter(TipoMembresia.id == membresia.tipo_membresia_id, TipoMembresia.is_deleted == False).first()
+
+    maestro_nombre = ""
+    if alumno.maestro_id:
+        maestro_obj = db.query(Maestro).filter(Maestro.id == alumno.maestro_id).first()
+        if maestro_obj:
+            maestro_nombre = f"{maestro_obj.nombre} {maestro_obj.apellido_paterno}"
+
+    pdf_bytes = generar_recibo_membresia(
+        alumno_nombre=f"{alumno.nombrecompleto} {alumno.apellido_paterno} {alumno.apellido_materno or ''}".strip(),
+        alumno_rama=alumno.rama,
+        tutor_nombre=f"{tutor.nombre} {tutor.apellido_paterno} {tutor.apellido_materno or ''}".strip(),
+        tutor_telefono=tutor.telefono,
+        tutor_email=tutor.email,
+        membresia_id=membresia.id,
+        tipo_nombre=tipo.nombre,
+        costo_real=float(membresia.costo_real),
+        porcentaje_beca=membresia.porcentaje_beca,
+        fecha_inicio=membresia.fecha_inicio.isoformat(),
+        fecha_vencimiento=membresia.fecha_vencimiento.isoformat(),
+        pagado=membresia.pagado,
+        maestro_nombre=maestro_nombre,
+        fecha_emision=datetime.now().strftime("%d/%m/%Y"),
+    )
+
+    audit_log(db, current_user.id, "DOWNLOAD", "membresia", membresia_id,
+              f"{current_user.username} descargó recibo de membresía {tipo.nombre} de {alumno.nombrecompleto} {alumno.apellido_paterno}")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="Recibo_Membresia_{membresia_id}.pdf"'},
+    )
 
 
 @router.delete("/{membresia_id}", status_code=204)

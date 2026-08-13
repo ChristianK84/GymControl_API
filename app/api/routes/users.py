@@ -16,7 +16,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.post("/", response_model=UserResponse, status_code=201)
 def create_user(payload: UserCreate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
-    existing = db.query(User).filter(User.username == payload.username).first()
+    normalized = payload.username.strip().lower()
+    existing = db.query(User).filter(User.username == normalized).first()
     if existing:
         raise HTTPException(status_code=400, detail="El username ya existe")
 
@@ -25,7 +26,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db), _admin=Depen
         raise HTTPException(status_code=400, detail="El role_id no existe")
 
     user = User(
-        username=payload.username,
+        username=normalized,
         password_hash=hash_password(payload.password),
         full_name=payload.full_name,
         role_id=payload.role_id,

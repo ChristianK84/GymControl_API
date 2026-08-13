@@ -48,5 +48,6 @@ class MaestroResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     user: Optional[MaestroUserInfo] = None
+    generated_password: Optional[str] = None
 
     model_config = {"from_attributes": True}

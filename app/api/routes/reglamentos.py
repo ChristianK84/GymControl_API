@@ -67,9 +67,11 @@ def _decodificar_token(token: str) -> Optional[dict]:
         return None
 
 
-def _obtener_estado(firma: FirmaReglamento) -> str:
+def _obtener_estado(firma: FirmaReglamento, requires_firma: bool = True) -> str:
     if firma.fecha_firma:
         return "firmado"
+    if not requires_firma and firma.fecha_lectura:
+        return "leido"
     if firma.expira_en.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
         return "expirado"
     return "pendiente"
@@ -237,7 +239,7 @@ def generar_links(
     db.commit()
 
     if emails_data:
-        background_tasks.add_task(enviar_lote, emails_data, reglamento.titulo, reglamento.version)
+        background_tasks.add_task(enviar_lote, emails_data, reglamento.titulo, reglamento.version, reglamento.requires_firma)
 
     audit_log(
         db, _admin.id, "GENERAR_LINKS", "reglamento", reglamento.id,
@@ -246,7 +248,7 @@ def generar_links(
     return GenerarLinksResponse(enviados=enviados, total=len(alumnos), ya_firmados=ya_firmados)
 
 
-def enviar_lote(emails_data, reg_titulo, reg_version):
+def enviar_lote(emails_data, reg_titulo, reg_version, requires_firma=True):
     try:
         logo_url = LOGO_URL
 
@@ -273,6 +275,17 @@ def enviar_lote(emails_data, reg_titulo, reg_version):
                     time.sleep(0.5)
 
                 try:
+                    if requires_firma:
+                        btn_text = "Firmar Reglamento"
+                        btn_url = data['link']
+                        msg_body = "Te informamos que el reglamento interno de nuestra academia ha sido actualizado y necesita ser firmado por el tutor del alumno(a)."
+                        asunto = f"Katira's Gymnastics - Firma de Reglamento ({data['nombre_alumno']})"
+                    else:
+                        btn_text = "Leer Documento"
+                        btn_url = data['link']
+                        msg_body = "Te compartimos un documento de la academia para tu lectura."
+                        asunto = f"Katira's Gymnastics - Documento ({data['nombre_alumno']})"
+
                     html = f"""
                     <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
                         <div style="text-align:center;padding:20px 0;">
@@ -282,22 +295,21 @@ def enviar_lote(emails_data, reg_titulo, reg_version):
                         <div style="background:#f5f5f5;border-radius:8px;padding:25px;margin:15px 0;">
                             <p style="font-size:16px;color:#333;">Hola <strong>{data['nombre_tutor']}</strong>,</p>
                             <p style="font-size:14px;color:#555;">
-                                Te informamos que el reglamento interno de nuestra academia ha sido actualizado
-                                y necesita ser firmado por el tutor del alumno(a).
+                                {msg_body}
                             </p>
                             <p style="font-size:14px;color:#555;">
                                 <strong>Alumno(a):</strong> {data['nombre_alumno']}<br>
                                 <strong>Documento:</strong> {reg_titulo} (v{reg_version})
                             </p>
                             <div style="text-align:center;margin:25px 0;">
-                                <a href="{data['link']}" style="display:inline-block;background:#0d47a1;color:white;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;">
-                                    Firmar Reglamento
+                                <a href="{btn_url}" style="display:inline-block;background:#0d47a1;color:white;padding:14px 32px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;">
+                                    {btn_text}
                                 </a>
                             </div>
                             <p style="font-size:12px;color:#999;">
                                 Este link expirar&aacute; en 30 d&iacute;as. Si no puede acceder, copie y pegue
                                 el siguiente enlace en su navegador:<br>
-                                <span style="word-break:break-all;color:#666;">{data['link']}</span>
+                                <span style="word-break:break-all;color:#666;">{btn_url}</span>
                             </p>
                         </div>
                         <p style="text-align:center;font-size:11px;color:#aaa;">
@@ -308,7 +320,7 @@ def enviar_lote(emails_data, reg_titulo, reg_version):
 
                     ok = enviar_email_html(
                         destinatario_email=data['email'],
-                        asunto=f"Katira's Gymnastics - Firma de Reglamento ({data['nombre_alumno']})",
+                        asunto=asunto,
                         cuerpo_html=html,
                         access_token=access_token,
                     )
@@ -358,7 +370,8 @@ def listar_firmas(
 
     result = []
     for f in firmas:
-        est = _obtener_estado(f)
+        requires_firma = f.reglamento.requires_firma if f.reglamento else True
+        est = _obtener_estado(f, requires_firma)
         if estado and est != estado:
             continue
         alumno_nombre = f"{f.alumno.nombrecompleto} {f.alumno.apellido_paterno}" if f.alumno else None
@@ -370,12 +383,15 @@ def listar_firmas(
                 id=f.id,
                 reglamento_id=f.reglamento_id,
                 reglamento_titulo=reglamento_titulo,
+                requires_firma=requires_firma,
+                url_pdf_cloudinary=f.reglamento.url_pdf_cloudinary if f.reglamento else None,
                 alumno_id=f.alumno_id,
                 tutor_id=f.tutor_id,
                 alumno_nombre=alumno_nombre,
                 tutor_nombre=tutor_nombre,
                 url_pdf_firmado_cloudinary=f.url_pdf_firmado_cloudinary,
                 fecha_firma=f.fecha_firma,
+                fecha_lectura=f.fecha_lectura,
                 expira_en=f.expira_en,
                 estado=est,
                 created_at=f.created_at,
@@ -406,7 +422,8 @@ def firmas_por_alumno(
 
     result = []
     for f in firmas:
-        est = _obtener_estado(f)
+        requires_firma = f.reglamento.requires_firma if f.reglamento else True
+        est = _obtener_estado(f, requires_firma)
         alumno_nombre = f"{f.alumno.nombrecompleto} {f.alumno.apellido_paterno}" if f.alumno else None
         tutor_nombre = f"{f.tutor.nombre} {f.tutor.apellido_paterno}" if f.tutor else None
         reglamento_titulo = f"{f.reglamento.titulo} (v{f.reglamento.version})" if f.reglamento else None
@@ -416,12 +433,15 @@ def firmas_por_alumno(
                 id=f.id,
                 reglamento_id=f.reglamento_id,
                 reglamento_titulo=reglamento_titulo,
+                requires_firma=requires_firma,
+                url_pdf_cloudinary=f.reglamento.url_pdf_cloudinary if f.reglamento else None,
                 alumno_id=f.alumno_id,
                 tutor_id=f.tutor_id,
                 alumno_nombre=alumno_nombre,
                 tutor_nombre=tutor_nombre,
                 url_pdf_firmado_cloudinary=f.url_pdf_firmado_cloudinary,
                 fecha_firma=f.fecha_firma,
+                fecha_lectura=f.fecha_lectura,
                 expira_en=f.expira_en,
                 estado=est,
                 created_at=f.created_at,
@@ -481,6 +501,7 @@ def validar_token(token: str, db: Session = Depends(get_db)):
     if firma.fecha_firma:
         return ValidarTokenResponse(
             valido=False,
+            requires_firma=reglamento.requires_firma,
             ya_firmado=True,
             alumno_nombre=f"{alumno.nombrecompleto} {alumno.apellido_paterno}",
             tutor_nombre=f"{tutor.nombre} {tutor.apellido_paterno}",
@@ -489,8 +510,22 @@ def validar_token(token: str, db: Session = Depends(get_db)):
             mensaje="Este reglamento ya fue firmado anteriormente.",
         )
 
+    if not reglamento.requires_firma and firma.fecha_lectura:
+        return ValidarTokenResponse(
+            valido=False,
+            requires_firma=False,
+            ya_leido=True,
+            alumno_nombre=f"{alumno.nombrecompleto} {alumno.apellido_paterno}",
+            tutor_nombre=f"{tutor.nombre} {tutor.apellido_paterno}",
+            titulo_reglamento=reglamento.titulo,
+            version=reglamento.version,
+            url_pdf=reglamento.url_pdf_cloudinary,
+            mensaje="Este documento ya fue leído anteriormente.",
+        )
+
     return ValidarTokenResponse(
         valido=True,
+        requires_firma=reglamento.requires_firma,
         alumno_nombre=f"{alumno.nombrecompleto} {alumno.apellido_paterno}",
         tutor_nombre=f"{tutor.nombre} {tutor.apellido_paterno}",
         tutor_telefono=tutor.telefono,
@@ -671,6 +706,62 @@ def procesar_firma(
         return {"exito": False, "mensaje": "Error al procesar la firma. Intente de nuevo."}
 
 
+@router_public.post("/leido")
+def marcar_leido(
+    payload: FirmarPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    token = payload.token
+
+    token_data = _decodificar_token(token)
+    if not token_data:
+        return {"exito": False, "mensaje": "El enlace no es válido o está corrupto."}
+
+    alumno_id = token_data.get("alumno_id")
+    reglamento_id = token_data.get("reglamento_id")
+
+    reglamento = (
+        db.query(Reglamento)
+        .filter(Reglamento.id == reglamento_id, Reglamento.is_deleted == False)
+        .first()
+    )
+    if not reglamento:
+        return {"exito": False, "mensaje": "Reglamento no encontrado."}
+
+    if reglamento.requires_firma:
+        return {"exito": False, "mensaje": "Este documento requiere firma, no marcado como leído."}
+
+    firma = (
+        db.query(FirmaReglamento)
+        .filter(FirmaReglamento.token_usado == token, FirmaReglamento.is_deleted == False)
+        .first()
+    )
+    if not firma:
+        return {"exito": False, "mensaje": "Registro no encontrado."}
+    if firma.fecha_lectura:
+        return {"exito": False, "mensaje": "Este documento ya fue leído anteriormente."}
+
+    exp = token_data.get("exp")
+    if isinstance(exp, (int, float)):
+        exp_date = datetime.fromtimestamp(exp, tz=timezone.utc)
+        if exp_date < datetime.now(timezone.utc):
+            return {"exito": False, "mensaje": "Este enlace ha expirado."}
+
+    firma.fecha_lectura = datetime.now(timezone.utc)
+    firma.ip_address = request.client.host if request.client else None
+    db.commit()
+
+    audit_log(
+        db, None, "LECTURA", "reglamento", firma.id,
+        f"Tutor {firma.tutor_id} confirmó lectura de reglamento {reglamento.titulo} del alumno {alumno_id}"
+    )
+
+    logger.info("Documento %s marcado como leído por tutor %s (alumno %s)", reglamento_id, firma.tutor_id, alumno_id)
+
+    return {"exito": True, "mensaje": "Documento marcado como leído."}
+
+
 @router_public.get("/firma", response_class=HTMLResponse)
 def pagina_firma(token: str = Query(...), db: Session = Depends(get_db)):
     payload = _decodificar_token(token)
@@ -705,9 +796,12 @@ def pagina_firma(token: str = Query(...), db: Session = Depends(get_db)):
                 error_html = "<div class='error-box'>Este enlace ha expirado (vigencia de 30 días). Contacta a la academia para obtener uno nuevo.</div>"
             elif firma.fecha_firma:
                 error_html = "<div class='error-box'>Este reglamento ya fue firmado anteriormente. Gracias.</div>"
+            elif not reglamento.requires_firma and firma.fecha_lectura:
+                error_html = "<div class='error-box'>Este documento ya fue leído anteriormente. Gracias.</div>"
             else:
                 datos_json = json.dumps({
                     "token": token,
+                    "requiresFirma": reglamento.requires_firma,
                     "alumno": f"{alumno.nombrecompleto} {alumno.apellido_paterno}",
                     "tutor": f"{tutor.nombre} {tutor.apellido_paterno}",
                     "tutorTelefono": tutor.telefono,
@@ -780,7 +874,7 @@ def pagina_firma(token: str = Query(...), db: Session = Depends(get_db)):
           <div class="spinner"></div>
         </div>
       </div>
-      <div class="firma-box">
+      <div class="firma-box" id="firma-box">
         <h3>Firma del Tutor</h3>
         <p style="font-size:13px;color:#666;margin-bottom:8px;">Firme aqu&iacute; con su dedo o mouse</p>
         <canvas id="signature-canvas"></canvas>
@@ -792,18 +886,33 @@ def pagina_firma(token: str = Query(...), db: Session = Depends(get_db)):
           <label for="acepto">He le&iacute;do y acepto el reglamento interno de la academia</label>
         </div>
         <button class="btn-aceptar" id="btn-firmar" disabled onclick="firmar()">Firmar y Aceptar</button>
-        <div id="mensaje-exito" style="display:none;" class="mensaje-exito">
-          <img src="{settings.LOGO_URL}" alt="Katira's Gymnastics" style="width:80px;height:auto;margin-bottom:15px;">
-          <h2>&#10003; Documento firmado con &eacute;xito</h2>
-          <p>El reglamento ha sido firmado correctamente. En breve recibir&aacute; una copia del documento firmado en su correo electr&oacute;nico.</p>
-          <p style="margin-top:10px;font-size:13px;color:#666;">Ya puede cerrar esta ventana.</p>
+      </div>
+      <div class="firma-box" id="lectura-box" style="display:none;">
+        <h3>Documento para lectura</h3>
+        <p style="font-size:14px;color:#555;margin-bottom:15px;">Por favor revise el documento y confirme su lectura.</p>
+        <div class="checkbox-box">
+          <input type="checkbox" id="acepto-lectura" onchange="actualizarBotonLectura()">
+          <label for="acepto-lectura">He le&iacute;do el documento</label>
         </div>
-        <div id="mensaje-error" style="display:none;" class="mensaje-error">
-          <img src="{settings.LOGO_URL}" alt="Katira's Gymnastics" style="width:80px;height:auto;margin-bottom:15px;">
-          <h2>&#10008; Error al firmar</h2>
-          <p id="error-texto">No se pudo procesar la firma. Intente de nuevo.</p>
-          <button class="btn-reintentar" onclick="reintentar()">Volver a intentar</button>
-        </div>
+        <button class="btn-aceptar" id="btn-leer" disabled onclick="marcarLeido()">Confirmar lectura</button>
+      </div>
+      <div id="mensaje-exito" style="display:none;" class="mensaje-exito">
+        <img src="{settings.LOGO_URL}" alt="Katira's Gymnastics" style="width:80px;height:auto;margin-bottom:15px;">
+        <h2>&#10003; Documento firmado con &eacute;xito</h2>
+        <p>El reglamento ha sido firmado correctamente. En breve recibir&aacute; una copia del documento firmado en su correo electr&oacute;nico.</p>
+        <p style="margin-top:10px;font-size:13px;color:#666;">Ya puede cerrar esta ventana.</p>
+      </div>
+      <div id="mensaje-exito-lectura" style="display:none;" class="mensaje-exito">
+        <img src="{settings.LOGO_URL}" alt="Katira's Gymnastics" style="width:80px;height:auto;margin-bottom:15px;">
+        <h2>&#10003; Lectura confirmada</h2>
+        <p>Ha confirmado la lectura del documento correctamente.</p>
+        <p style="margin-top:10px;font-size:13px;color:#666;">Ya puede cerrar esta ventana.</p>
+      </div>
+      <div id="mensaje-error-interno" style="display:none;" class="mensaje-error">
+        <img src="{settings.LOGO_URL}" alt="Katira's Gymnastics" style="width:80px;height:auto;margin-bottom:15px;">
+        <h2>&#10008; Error al firmar</h2>
+        <p id="error-texto">No se pudo procesar la firma. Intente de nuevo.</p>
+        <button class="btn-reintentar" onclick="reintentar()">Volver a intentar</button>
       </div>
     </div>
   </div>
@@ -861,13 +970,16 @@ function terminar(e) {{
   ctx.beginPath();
 }}
 
-canvas.addEventListener('mousedown', empezar);
-canvas.addEventListener('mousemove', mover);
-canvas.addEventListener('mouseup', terminar);
-canvas.addEventListener('mouseleave', terminar);
-canvas.addEventListener('touchstart', empezar, {{ passive: false }});
-canvas.addEventListener('touchmove', mover, {{ passive: false }});
-canvas.addEventListener('touchend', terminar, {{ passive: false }});
+function inicializarCanvas() {{
+  if (!datos || !datos.requiresFirma) return;
+  canvas.addEventListener('mousedown', empezar);
+  canvas.addEventListener('mousemove', mover);
+  canvas.addEventListener('mouseup', terminar);
+  canvas.addEventListener('mouseleave', terminar);
+  canvas.addEventListener('touchstart', empezar, {{ passive: false }});
+  canvas.addEventListener('touchmove', mover, {{ passive: false }});
+  canvas.addEventListener('touchend', terminar, {{ passive: false }});
+}}
 
 function limpiarFirma() {{
   ctx.fillStyle = '#fff';
@@ -901,7 +1013,8 @@ function firmar() {{
   .then(data => {{
     if (data.exito) {{
       document.getElementById('mensaje-exito').style.display = 'block';
-      document.querySelector('.firma-box').style.display = 'none';
+      document.getElementById('firma-box').style.display = 'none';
+      document.getElementById('lectura-box').style.display = 'none';
       document.getElementById('info-alumno').style.display = 'none';
       document.getElementById('pdf-container').style.display = 'none';
     }} else {{
@@ -915,43 +1028,109 @@ function firmar() {{
 
 function showError(msg) {{
   document.getElementById('error-texto').textContent = msg;
-  document.getElementById('mensaje-error').style.display = 'block';
-  document.querySelector('.firma-box').style.display = 'none';
+  document.getElementById('mensaje-error-interno').style.display = 'block';
+  document.getElementById('firma-box').style.display = 'none';
+  document.getElementById('lectura-box').style.display = 'none';
   document.getElementById('info-alumno').style.display = 'none';
   document.getElementById('pdf-container').style.display = 'none';
 }}
 
 function reintentar() {{
-  document.getElementById('mensaje-error').style.display = 'none';
-  document.querySelector('.firma-box').style.display = '';
+  document.getElementById('mensaje-error-interno').style.display = 'none';
   document.getElementById('info-alumno').style.display = '';
   document.getElementById('pdf-container').style.display = '';
-  redimensionarCanvas();
+  if (datos && datos.requiresFirma) {{
+    document.getElementById('firma-box').style.display = '';
+    redimensionarCanvas();
+  }} else {{
+    document.getElementById('lectura-box').style.display = '';
+  }}
   document.getElementById('btn-firmar').disabled = true;
   document.getElementById('btn-firmar').textContent = 'Firmar y Aceptar';
 }}
 
+function actualizarBotonLectura() {{
+  const acepto = document.getElementById('acepto-lectura').checked;
+  document.getElementById('btn-leer').disabled = !acepto;
+}}
+
+function marcarLeido() {{
+  if (!document.getElementById('acepto-lectura').checked) return;
+  const btn = document.getElementById('btn-leer');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  fetch('/api/v1/reglamento/leido', {{
+    method: 'POST',
+    headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify({{ token: datos.token, firma_base64: 'lectura' }})
+  }})
+  .then(r => r.json())
+  .then(data => {{
+    if (data.exito) {{
+      document.getElementById('mensaje-exito-lectura').style.display = 'block';
+      document.getElementById('firma-box').style.display = 'none';
+      document.getElementById('lectura-box').style.display = 'none';
+      document.getElementById('info-alumno').style.display = 'none';
+      document.getElementById('pdf-container').style.display = 'none';
+    }} else {{
+      showError(data.mensaje || 'No se pudo confirmar la lectura.');
+    }}
+  }})
+  .catch(() => {{
+    showError('Error de conexi\u00f3n. Verifique su internet e intente de nuevo.');
+  }});
+}}
+
 function cargarDatos() {{
   if (!datos) return;
-  document.getElementById('info-alumno').innerHTML = `
-    <p><strong>Tutor:</strong> ${{datos.tutor}} <span style="color:#666;">(${{datos.tutorEmail || 'Sin correo'}})</span></p>
-    <p><strong>Alumno(a):</strong> ${{datos.alumno}}</p>
-    <p><strong>Documento:</strong> ${{datos.titulo}} (v${{datos.version}})</p>
-  `;
-  const pdfContainer = document.getElementById('pdf-container');
+  var infoBox = document.getElementById('info-alumno');
+  infoBox.innerHTML = '';
+  var lines = [
+    ['Tutor: ', datos.tutor, ' (' + (datos.tutorEmail || 'Sin correo') + ')'],
+    ['Alumno(a): ', datos.alumno, ''],
+    ['Documento: ', datos.titulo, ' (v' + datos.version + ')']
+  ];
+  lines.forEach(function(parts) {{
+    var p = document.createElement('p');
+    var strong = document.createElement('strong');
+    strong.textContent = parts[0];
+    p.appendChild(strong);
+    if (parts[1]) p.appendChild(document.createTextNode(parts[1]));
+    if (parts[2]) p.appendChild(document.createTextNode(parts[2]));
+    infoBox.appendChild(p);
+  }});
+  var pdfContainer = document.getElementById('pdf-container');
+  pdfContainer.innerHTML = '';
   if (datos.urlPdf) {{
-    pdfContainer.innerHTML = `<iframe src="${{datos.urlPdf}}" title="Reglamento"></iframe>`;
+    var iframe = document.createElement('iframe');
+    iframe.src = datos.urlPdf;
+    iframe.title = 'Reglamento';
+    pdfContainer.appendChild(iframe);
   }} else {{
-    pdfContainer.innerHTML = `<div class="pdf-placeholder"><p>No se pudo cargar el documento.</p></div>`;
+    var div = document.createElement('div');
+    div.className = 'pdf-placeholder';
+    var p = document.createElement('p');
+    p.textContent = 'No se pudo cargar el documento.';
+    div.appendChild(p);
+    pdfContainer.appendChild(div);
   }}
-  redimensionarCanvas();
+  if (datos.requiresFirma) {{
+    document.getElementById('firma-box').style.display = 'block';
+    document.getElementById('lectura-box').style.display = 'none';
+    redimensionarCanvas();
+  }} else {{
+    document.getElementById('firma-box').style.display = 'none';
+    document.getElementById('lectura-box').style.display = 'block';
+  }}
 }}
 
 window.addEventListener('load', () => {{
   cargarDatos();
-  redimensionarCanvas();
+  inicializarCanvas();
+  if (datos && datos.requiresFirma) redimensionarCanvas();
 }});
-window.addEventListener('resize', redimensionarCanvas);
+window.addEventListener('resize', () => {{ if (datos && datos.requiresFirma) redimensionarCanvas(); }});
 </script>
 </body>
 </html>""")

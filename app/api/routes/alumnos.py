@@ -141,15 +141,21 @@ def update_alumno(
 
     update_data = payload.model_dump(exclude_unset=True)
 
+    if current_maestro:
+        if not update_data or set(update_data.keys()) != {"fotografia"}:
+            raise HTTPException(status_code=400, detail="Los maestros solo pueden actualizar la fotografía")
+        alumno.fotografia = update_data["fotografia"]
+        db.commit()
+        db.refresh(alumno)
+        return alumno
+
     for field in ("nombrecompleto", "apellido_paterno", "apellido_materno",
                   "rama", "fecha_nacimiento", "fotografia",
                   "fecha_inscripcion", "is_active"):
         if field in update_data:
             setattr(alumno, field, update_data[field])
 
-    if current_maestro:
-        update_data.pop("maestro_id", None)
-    elif "maestro_id" in update_data:
+    if "maestro_id" in update_data:
         alumno.maestro_id = update_data["maestro_id"]
 
     if payload.tutor is not None:

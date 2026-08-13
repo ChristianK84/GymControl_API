@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
@@ -20,7 +21,10 @@ _PLACEHOLDER_HASH = hash_password("placeholder")
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
 def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == payload.username, User.is_deleted == False).first()
+    user = db.query(User).filter(
+        func.lower(User.username) == payload.username.strip().lower(),
+        User.is_deleted == False,
+    ).first()
 
     if not user or not user.is_active:
         verify_password(payload.password, _PLACEHOLDER_HASH)
@@ -29,13 +33,24 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
     if user.locked_until:
         if user.locked_until > datetime.now(timezone.utc):
             verify_password(payload.password, _PLACEHOLDER_HASH)
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
+            minutos = int((user.locked_until - datetime.now(timezone.utc)).total_seconds() / 60) + 1
+            raise HTTPException(
+                status_code=status.HTTP_423_LOCKED,
+                detail=f"Cuenta bloqueada. Intente de nuevo en {minutos} minuto(s)."
+            )
         user.failed_login_attempts = 0
         user.locked_until = None
         db.commit()
         db.refresh(user)
 
-    if not verify_password(payload.password, user.password_hash):
+    submitted_password = payload.password.strip()
+    password_matches = (
+        verify_password(submitted_password, user.password_hash)
+        or verify_password(submitted_password.lower(), user.password_hash)
+        or verify_password(submitted_password.upper(), user.password_hash)
+        or verify_password(submitted_password.capitalize(), user.password_hash)
+    )
+    if not password_matches:
         user.failed_login_attempts += 1
         if user.failed_login_attempts >= settings.LOGIN_MAX_ATTEMPTS:
             user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)

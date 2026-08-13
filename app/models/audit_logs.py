@@ -17,7 +17,7 @@ class AuditLog(Base):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
     action: Mapped[str] = mapped_column(String(20), nullable=False)
     entity: Mapped[str] = mapped_column(String(30), nullable=False)
     entity_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
@@ -26,4 +26,4 @@ class AuditLog(Base):
         DateTime, server_default=func.current_timestamp()
     )
 
-    user: Mapped["User"] = relationship("User")
+    user: Mapped[Optional["User"]] = relationship("User")

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def audit_log(
     db: Session,
-    user_id: int,
+    user_id: int | None,
     action: str,
     entity: str,
     entity_id: int | None,

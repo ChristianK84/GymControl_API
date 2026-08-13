@@ -1,4 +1,5 @@
 import secrets
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
@@ -25,7 +26,12 @@ def _generar_username(nombre: str, apellido_paterno: str) -> str:
     return nombre[0].upper() + apellido_paterno[0].upper() + apellido_paterno[1:].lower()
 
 
-def _crear_usuario_maestro(nombre: str, apellido_paterno: str, db: Session) -> User:
+def _crear_usuario_maestro(
+    nombre: str,
+    apellido_paterno: str,
+    fecha_nacimiento: date,
+    db: Session,
+) -> tuple[User, str]:
     base_username = _generar_username(nombre, apellido_paterno)
     username = base_username
     counter = 1
@@ -33,7 +39,9 @@ def _crear_usuario_maestro(nombre: str, apellido_paterno: str, db: Session) -> U
         username = f"{base_username}{counter}"
         counter += 1
 
-    password = secrets.token_urlsafe(8)
+    apellido = apellido_paterno.split()[0].lower()
+    last_two = str(fecha_nacimiento.year)[-2:]
+    password = f"{nombre[0].lower()}{apellido}{last_two}"
 
     user = User(
         username=username,
@@ -43,12 +51,13 @@ def _crear_usuario_maestro(nombre: str, apellido_paterno: str, db: Session) -> U
     )
     db.add(user)
     db.flush()
-    return user
+    return user, password
 
 
 @router.post("/", response_model=MaestroResponse, status_code=201)
 def create_maestro(payload: MaestroCreate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
     user_id = payload.user_id
+    generated_password = None
 
     if user_id is not None:
         existing = db.query(Maestro).filter(Maestro.user_id == user_id).first()
@@ -58,8 +67,8 @@ def create_maestro(payload: MaestroCreate, db: Session = Depends(get_db), _admin
         if not user:
             raise HTTPException(status_code=400, detail="El usuario no existe")
     elif payload.fecha_nacimiento is not None:
-        user = _crear_usuario_maestro(
-            payload.nombre, payload.apellido_paterno, db
+        user, generated_password = _crear_usuario_maestro(
+            payload.nombre, payload.apellido_paterno, payload.fecha_nacimiento, db
         )
         user_id = user.id
     else:
@@ -75,7 +84,11 @@ def create_maestro(payload: MaestroCreate, db: Session = Depends(get_db), _admin
     audit_log(db, _admin.id, "CREATE", "maestro", maestro.id,
               f"{_admin.username} creó al maestro {maestro.nombre} {maestro.apellido_paterno}")
 
-    return _maestro_base_query(db).filter(Maestro.id == maestro.id).first()
+    result = _maestro_base_query(db).filter(Maestro.id == maestro.id).first()
+    response = MaestroResponse.model_validate(result)
+    if generated_password:
+        response.generated_password = generated_password
+    return response
 
 
 @router.get("/", response_model=list[MaestroResponse])
