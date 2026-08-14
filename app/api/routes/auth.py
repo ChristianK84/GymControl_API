@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.limiter import limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models import Maestro, User
-from app.schemas.auth import LoginRequest, TokenResponse
+from app.schemas.auth import ChangePasswordPayload, LoginRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -111,3 +111,22 @@ def refresh_token(current_user: User = Depends(get_current_user), db: Session = 
 def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     audit_log(db, current_user.id, "LOGOUT", "auth", None, f"{current_user.username} cerró sesión")
     return {"message": "Sesión cerrada"}
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordPayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="La contraseña actual es incorrecta")
+
+    current_user.password_hash = hash_password(payload.new_password)
+    current_user.token_version += 1
+    db.commit()
+
+    audit_log(db, current_user.id, "UPDATE", "usuario", current_user.id,
+              f"{current_user.username} cambió su contraseña")
+
+    return {"message": "Contraseña actualizada exitosamente"}
