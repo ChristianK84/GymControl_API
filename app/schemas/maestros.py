@@ -10,6 +10,7 @@ class MaestroCreate(BaseModel):
     apellido_paterno: str = Field(max_length=100)
     apellido_materno: Optional[str] = Field(default=None, max_length=100)
     telefono: Optional[str] = Field(default=None, max_length=20)
+    email: Optional[str] = Field(default=None, max_length=150)
     foto: Optional[str] = Field(default=None, max_length=500)
     fecha_nacimiento: Optional[date] = None
 
@@ -20,6 +21,7 @@ class MaestroUpdate(BaseModel):
     apellido_paterno: Optional[str] = Field(default=None, max_length=100)
     apellido_materno: Optional[str] = Field(default=None, max_length=100)
     telefono: Optional[str] = Field(default=None, max_length=20)
+    email: Optional[str] = Field(default=None, max_length=150)
     foto: Optional[str] = Field(default=None, max_length=500)
     fecha_nacimiento: Optional[date] = None
     is_active: Optional[bool] = None
@@ -41,6 +43,7 @@ class MaestroResponse(BaseModel):
     apellido_paterno: str
     apellido_materno: Optional[str]
     telefono: Optional[str]
+    email: Optional[str]
     foto: Optional[str]
     fecha_nacimiento: Optional[date]
     is_active: bool

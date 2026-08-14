@@ -18,6 +18,7 @@ class Maestro(Base):
     apellido_paterno: Mapped[str] = mapped_column(String(100), nullable=False)
     apellido_materno: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     telefono: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(150), unique=True, nullable=True)
     foto: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     fecha_nacimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
