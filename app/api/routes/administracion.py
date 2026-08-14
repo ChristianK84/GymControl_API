@@ -80,7 +80,11 @@ def enviar_bienvenida(
 
     # Descargar PDF una sola vez
     try:
-        pdf_bytes = http_requests.get(PDF_URL, timeout=30).content
+        logger.info("Descargando PDF manual desde Cloudinary...")
+        pdf_response = http_requests.get(PDF_URL, timeout=30)
+        pdf_response.raise_for_status()
+        pdf_bytes = pdf_response.content
+        logger.info("PDF descargado OK: %d bytes", len(pdf_bytes))
     except Exception as exc:
         logger.error("Error al descargar PDF de bienvenida: %s", exc)
         raise HTTPException(status_code=500, detail="Error al descargar el manual de usuario")
@@ -123,6 +127,7 @@ def enviar_bienvenida(
         html = _build_welcome_email(nombre_completo, user.username, new_password)
 
         # Enviar
+        logger.info("Enviando email a maestro id=%d, email=%s", maestro.id, maestro.email)
         ok = enviar_recibo_email(
             destinatario_email=maestro.email,
             asunto="Bienvenido a GymControl - Katira's Gymnastics",
@@ -133,10 +138,12 @@ def enviar_bienvenida(
         )
 
         if ok:
+            logger.info("Email enviado OK a %s", maestro.email)
             enviados += 1
             audit_log(db, _admin.id, "SEND_EMAIL", "maestro", maestro.id,
                       f"Bienvenida enviada a {maestro.email}")
         else:
-            fallidos.append(FallidoItem(id=mid, nombre=nombre_completo, error="Falló el envío del correo"))
+            logger.error("FALLÓ envío a maestro id=%d, email=%s", maestro.id, maestro.email)
+            fallidos.append(FallidoItem(id=mid, nombre=nombre_completo, error=f"Falló el envío a {maestro.email}"))
 
     return BienvenidaResultado(enviados=enviados, fallidos=fallidos)
