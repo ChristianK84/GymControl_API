@@ -116,6 +116,12 @@ def enviar_bienvenida(
             fallidos.append(FallidoItem(id=mid, nombre=f"{maestro.nombre} {maestro.apellido_paterno}", error="Usuario no encontrado"))
             continue
 
+        # Prevenir auto-envio (incrementaria el token_version del admin y cerraria su sesion)
+        if user.id == _admin.id:
+            nombre_completo = f"{maestro.nombre} {maestro.apellido_paterno}"
+            fallidos.append(FallidoItem(id=mid, nombre=nombre_completo, error="No puedes enviarte email a ti mismo"))
+            continue
+
         # Generar password nuevo y resetear
         new_password = secrets.token_urlsafe(8)
         user.password_hash = hash_password(new_password)
