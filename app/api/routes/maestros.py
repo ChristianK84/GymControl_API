@@ -15,6 +15,11 @@ from app.schemas.maestros import (
     MaestroUpdate,
 )
 
+ALLOWED_SELF_FIELDS = {
+    'nombre', 'apellido_paterno', 'apellido_materno',
+    'telefono', 'email', 'fecha_nacimiento', 'foto',
+}
+
 router = APIRouter(prefix="/maestros", tags=["maestros"])
 
 
@@ -126,28 +131,48 @@ def get_maestro(
 
 
 @router.put("/{maestro_id}", response_model=MaestroResponse)
-def update_maestro(maestro_id: int, payload: MaestroUpdate, db: Session = Depends(get_db), _admin=Depends(require_admin)):
+def update_maestro(
+    maestro_id: int,
+    payload: MaestroUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_maestro: Maestro | None = Depends(get_current_maestro),
+):
     maestro = _maestro_base_query(db).filter(Maestro.id == maestro_id).first()
     if not maestro:
         raise HTTPException(status_code=404, detail="Maestro no encontrado")
 
-    if payload.user_id is not None and payload.user_id != maestro.user_id:
-        existing = db.query(Maestro).filter(Maestro.user_id == payload.user_id).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="Ya existe un maestro con ese user_id")
-        user = db.query(User).filter(User.id == payload.user_id, User.is_deleted == False).first()
-        if not user:
-            raise HTTPException(status_code=400, detail="El usuario no existe")
+    is_admin = current_user.role_id == 1
+    is_self = current_maestro is not None and current_maestro.id == maestro_id
+
+    if not is_admin and not is_self:
+        raise HTTPException(status_code=403, detail="No autorizado")
 
     update_data = payload.model_dump(exclude_unset=True)
+
+    # Maestro solo puede editar campos permitidos (no is_active ni user_id)
+    if not is_admin:
+        update_data = {k: v for k, v in update_data.items() if k in ALLOWED_SELF_FIELDS}
+
+    # Validar reasignación de user_id (solo admin)
+    if 'user_id' in update_data and update_data['user_id'] is not None:
+        new_user_id = update_data['user_id']
+        if new_user_id != maestro.user_id:
+            existing = db.query(Maestro).filter(Maestro.user_id == new_user_id).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="Ya existe un maestro con ese user_id")
+            user = db.query(User).filter(User.id == new_user_id, User.is_deleted == False).first()
+            if not user:
+                raise HTTPException(status_code=400, detail="El usuario no existe")
+
     for field, value in update_data.items():
         setattr(maestro, field, value)
 
     db.commit()
     db.refresh(maestro)
 
-    audit_log(db, _admin.id, "UPDATE", "maestro", maestro.id,
-              f"{_admin.username} actualizó al maestro {maestro.nombre} {maestro.apellido_paterno}")
+    audit_log(db, current_user.id, "UPDATE", "maestro", maestro.id,
+              f"{current_user.username} actualizó al maestro {maestro.nombre} {maestro.apellido_paterno}")
 
     return maestro
 
