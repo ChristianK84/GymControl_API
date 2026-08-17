@@ -3,18 +3,19 @@ from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.api.dependencies import get_current_maestro, get_current_user, require_maestro
 from app.core.audit import audit_log
 from app.core.database import get_db
 from app.core.email import enviar_recibo_email
 from app.core.qr_utils import generar_qr_png
-from app.models import Alumno, ContactoEmergencia, FichaMedica, Maestro, Tutor, User
+from app.models import Alumno, ContactoEmergencia, FichaMedica, Maestro, Tutor, User, Membresia
 from app.schemas.alumnos import (
     AlumnoCreate,
     AlumnoResponse,
     AlumnoUpdate,
+    MembresiaResumen,
 )
 
 logger = logging.getLogger(__name__)
@@ -22,11 +23,27 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/alumnos", tags=["alumnos"])
 
 
+def _get_membresia_resumen(alumno) -> MembresiaResumen | None:
+    """Retorna la membresía más reciente del alumno con estado calculado."""
+    if not alumno.membresias:
+        return None
+    hoy = date.today()
+    ultima = max(alumno.membresias, key=lambda m: m.fecha_vencimiento)
+    esta_vencida = hoy > ultima.fecha_vencimiento
+    return MembresiaResumen(
+        is_active=ultima.is_active,
+        fecha_vencimiento=ultima.fecha_vencimiento,
+        esta_vencida=esta_vencida,
+        estado=ultima.estado.nombre if ultima.estado else None,
+    )
+
+
 def _alumno_base_query(db: Session):
     return db.query(Alumno).options(
         joinedload(Alumno.tutor),
         joinedload(Alumno.contacto_emergencia),
         joinedload(Alumno.ficha_medica),
+        selectinload(Alumno.membresias).selectinload(Membresia.estado),
     )
 
 
@@ -90,7 +107,16 @@ def list_alumnos(
         q = q.filter(Alumno.maestro_id == current_maestro.id)
     elif maestro_id:
         q = q.filter(Alumno.maestro_id == maestro_id)
-    return q.order_by(Alumno.id).all()
+    alumnos = q.order_by(Alumno.id).all()
+
+    # Poblar membresia_activa en cada respuesta
+    responses = []
+    for alumno in alumnos:
+        resp = AlumnoResponse.model_validate(alumno)
+        resp.membresia_activa = _get_membresia_resumen(alumno)
+        responses.append(resp)
+
+    return responses
 
 
 @router.get("/cumpleaños", response_model=list[AlumnoResponse])

@@ -141,6 +141,13 @@ class AlumnoUpdate(BaseModel):
     ficha_medica: Optional[FichaMedicaUpdate] = None
 
 
+class MembresiaResumen(BaseModel):
+    is_active: bool
+    fecha_vencimiento: date
+    esta_vencida: bool = False
+    estado: str | None = None
+
+
 class AlumnoResponse(BaseModel):
     id: int
     nombrecompleto: str
@@ -158,5 +165,6 @@ class AlumnoResponse(BaseModel):
     tutor: Optional[TutorResponse]
     contacto_emergencia: Optional[ContactoEmergenciaResponse]
     ficha_medica: Optional[FichaMedicaResponse]
+    membresia_activa: Optional[MembresiaResumen] = None
 
     model_config = {"from_attributes": True}
