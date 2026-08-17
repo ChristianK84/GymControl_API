@@ -22,16 +22,23 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/alumnos", tags=["alumnos"])
 
+ACTIVA = 1
+PENDIENTE = 4
+
 
 def _get_membresia_resumen(alumno) -> MembresiaResumen | None:
     """Retorna la membresía más reciente del alumno con estado calculado."""
-    if not alumno.membresias:
+    membresias_validas = [
+        m for m in alumno.membresias
+        if m.estado_id in (ACTIVA, PENDIENTE)
+    ]
+    if not membresias_validas:
         return None
     hoy = date.today()
-    ultima = max(alumno.membresias, key=lambda m: m.fecha_vencimiento)
+    ultima = max(membresias_validas, key=lambda m: m.fecha_vencimiento)
     esta_vencida = hoy > ultima.fecha_vencimiento
     return MembresiaResumen(
-        is_active=ultima.is_active,
+        is_active=ultima.estado_id == ACTIVA and not esta_vencida,
         fecha_vencimiento=ultima.fecha_vencimiento,
         esta_vencida=esta_vencida,
         estado=ultima.estado.nombre if ultima.estado else None,
