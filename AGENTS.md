@@ -92,6 +92,62 @@ app/
 - Sin passlib; siempre usa `bcrypt.hashpw` / `bcrypt.checkpw` directamente
 - Auditoría: toda operación de escritura registra en `audit_logs` con user, acción, entidad, entity_id y descripción legible
 
+## Modelo `MembresiaResumen` + lógica Inscripción vs Membresía
+
+### Schema (`app/schemas/alumnos.py`)
+
+```python
+class MembresiaResumen(BaseModel):
+    is_active: bool          # estado_id == ACTIVA y no vencida
+    fecha_vencimiento: date
+    esta_vencida: bool       # hoy > fecha_vencimiento
+    pagado: bool
+    estado: str | None       # nombre del EstadoMembresia
+```
+
+### Inscripción vs Membresía
+
+El endpoint `GET /alumnos/` retorna **dos** campos de resumen en cada alumno:
+
+```python
+class AlumnoResponse(BaseModel):
+    ...
+    inscripcion: MembresiaResumen | None = None  # tipo_membresia_id == 1
+    membresia: MembresiaResumen | None = None    # tipo_membresia_id != 1
+```
+
+(Reemplaza el campo legacy `membresia_activa`, ya extinto.)
+
+### Constantes en `app/api/routes/alumnos.py`
+
+- `ACTIVA = 1`
+- `PENDIENTE = 4`
+- `TIPO_INSCRIPCION = 1`
+
+### Helpers
+
+```python
+_build_membresia_resumen(m) -> MembresiaResumen
+    # esta_vencida = hoy > m.fecha_vencimiento
+    # is_active = m.estado_id == ACTIVA and not esta_vencida
+
+_get_resumenes(alumno) -> tuple[MembresiaResumen | None, MembresiaResumen | None]
+    # 1. Filtra alumno.membresias por estado_id in (ACTIVA, PENDIENTE)
+    # 2. Separa: tipo_membresia_id == 1 → inscripciones; resto → membresias
+    # 3. Toma max(fecha_vencimiento) en cada grupo → (inscripcion, membresia)
+```
+
+El `_alumno_base_query` hace `selectinload(Alumno.membresias).selectinload(Membresia.estado)` para evitar N+1.
+
+### IDs reales de `estados_membresia` (validados)
+
+| id | nombre | color |
+|---|---|---|
+| 1 | Activa | #22c55e |
+| 2 | Vencida | #ef4444 |
+| 3 | Cancelada | #6b7280 |
+| 4 | Pendiente | #f59e0b |
+
 ## Rutas disponibles (~56 endpoints bajo `/api/v1/`)
 
 | Módulo | Ruta | Acceso |
