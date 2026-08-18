@@ -24,26 +24,39 @@ router = APIRouter(prefix="/alumnos", tags=["alumnos"])
 
 ACTIVA = 1
 PENDIENTE = 4
+TIPO_INSCRIPCION = 1
 
 
-def _get_membresia_resumen(alumno) -> MembresiaResumen | None:
-    """Retorna la membresía más reciente del alumno con estado calculado."""
-    membresias_validas = [
+def _build_membresia_resumen(membresia) -> MembresiaResumen:
+    """Construye MembresiaResumen a partir de una Membresia."""
+    hoy = date.today()
+    esta_vencida = hoy > membresia.fecha_vencimiento
+    return MembresiaResumen(
+        is_active=membresia.estado_id == ACTIVA and not esta_vencida,
+        fecha_vencimiento=membresia.fecha_vencimiento,
+        esta_vencida=esta_vencida,
+        pagado=membresia.pagado,
+        estado=membresia.estado.nombre if membresia.estado else None,
+    )
+
+
+def _get_resumenes(alumno) -> tuple[MembresiaResumen | None, MembresiaResumen | None]:
+    """Retorna (inscripcion, membresia) por separado según tipo_membresia_id."""
+    validas = [
         m for m in alumno.membresias
         if m.estado_id in (ACTIVA, PENDIENTE)
     ]
-    if not membresias_validas:
-        return None
-    hoy = date.today()
-    ultima = max(membresias_validas, key=lambda m: m.fecha_vencimiento)
-    esta_vencida = hoy > ultima.fecha_vencimiento
-    return MembresiaResumen(
-        is_active=ultima.estado_id == ACTIVA and not esta_vencida,
-        fecha_vencimiento=ultima.fecha_vencimiento,
-        esta_vencida=esta_vencida,
-        pagado=ultima.pagado,
-        estado=ultima.estado.nombre if ultima.estado else None,
+    inscripciones = [m for m in validas if m.tipo_membresia_id == TIPO_INSCRIPCION]
+    membresias = [m for m in validas if m.tipo_membresia_id != TIPO_INSCRIPCION]
+    inscripcion = (
+        _build_membresia_resumen(max(inscripciones, key=lambda m: m.fecha_vencimiento))
+        if inscripciones else None
     )
+    membresia = (
+        _build_membresia_resumen(max(membresias, key=lambda m: m.fecha_vencimiento))
+        if membresias else None
+    )
+    return inscripcion, membresia
 
 
 def _alumno_base_query(db: Session):
@@ -117,11 +130,11 @@ def list_alumnos(
         q = q.filter(Alumno.maestro_id == maestro_id)
     alumnos = q.order_by(Alumno.id).all()
 
-    # Poblar membresia_activa en cada respuesta
+    # Poblar inscripcion y membresia por separado en cada respuesta
     responses = []
     for alumno in alumnos:
         resp = AlumnoResponse.model_validate(alumno)
-        resp.membresia_activa = _get_membresia_resumen(alumno)
+        resp.inscripcion, resp.membresia = _get_resumenes(alumno)
         responses.append(resp)
 
     return responses

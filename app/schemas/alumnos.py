@@ -166,6 +166,7 @@ class AlumnoResponse(BaseModel):
     tutor: Optional[TutorResponse]
     contacto_emergencia: Optional[ContactoEmergenciaResponse]
     ficha_medica: Optional[FichaMedicaResponse]
-    membresia_activa: Optional[MembresiaResumen] = None
+    inscripcion: Optional[MembresiaResumen] = None
+    membresia: Optional[MembresiaResumen] = None
 
     model_config = {"from_attributes": True}
