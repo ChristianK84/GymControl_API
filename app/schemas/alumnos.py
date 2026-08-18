@@ -145,6 +145,7 @@ class MembresiaResumen(BaseModel):
     is_active: bool
     fecha_vencimiento: date
     esta_vencida: bool = False
+    pagado: bool = True
     estado: str | None = None
 
 

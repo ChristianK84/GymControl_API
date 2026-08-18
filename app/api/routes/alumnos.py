@@ -41,6 +41,7 @@ def _get_membresia_resumen(alumno) -> MembresiaResumen | None:
         is_active=ultima.estado_id == ACTIVA and not esta_vencida,
         fecha_vencimiento=ultima.fecha_vencimiento,
         esta_vencida=esta_vencida,
+        pagado=ultima.pagado,
         estado=ultima.estado.nombre if ultima.estado else None,
     )
 
