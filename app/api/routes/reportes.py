@@ -1,13 +1,14 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_admin
 from app.core.database import get_db
-from app.models import Alumno, Asistencia, Transaccion
+from app.models import Alumno, Asistencia, Maestro, Transaccion
+from app.schemas.reportes import AsistenciasPorMaestroResponse, MaestroAsistencias
 
 router = APIRouter(prefix="/reportes", tags=["reportes"])
 
@@ -96,3 +97,122 @@ def dashboard(db: Session = Depends(get_db), _admin=Depends(require_admin)):
         "ausentismo_prolongado": _decimal(ausentismo),
         "asistencia_semanal": asistencia_semanal_lista,
     }
+
+
+def _generar_semanas_iso(fecha_inicio: date, fecha_fin: date) -> list[dict]:
+    """Genera la lista de semanas ISO (lunes-domingo) dentro del rango."""
+    # Primer lunes >= fecha_inicio
+    primer_lunes = fecha_inicio - timedelta(days=fecha_inicio.weekday())
+    if primer_lunes < fecha_inicio:
+        primer_lunes += timedelta(days=7)
+
+    semanas = []
+    cursor = primer_lunes
+    while cursor <= fecha_fin:
+        domingo = cursor + timedelta(days=6)
+        semanas.append(
+            {
+                "semana_iso": f"{cursor.isocalendar()[0]}-W{cursor.isocalendar()[1]:02d}",
+                "fecha_inicio": cursor,
+                "fecha_fin": domingo,
+            }
+        )
+        cursor += timedelta(days=7)
+    return semanas
+
+
+@router.get("/asistencias-por-maestro", response_model=AsistenciasPorMaestroResponse)
+def reporte_asistencias_por_maestro(
+    fecha_inicio: date | None = Query(None, description="Inicio del rango (default: 8 semanas atrás)"),
+    fecha_fin: date | None = Query(None, description="Fin del rango (default: hoy)"),
+    maestro_id: int | None = Query(None, description="Filtrar por maestro"),
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    """Retorna el conteo de asistencias por maestro y semana ISO (Lun-Dom)."""
+    hoy = date.today()
+    fecha_fin = fecha_fin or hoy
+    fecha_inicio = fecha_inicio or (hoy - timedelta(weeks=8))
+
+    if fecha_inicio > fecha_fin:
+        fecha_inicio, fecha_fin = fecha_fin, fecha_inicio
+
+    semanas = _generar_semanas_iso(fecha_inicio, fecha_fin)
+    if not semanas:
+        return AsistenciasPorMaestroResponse(
+            fecha_inicio_global=fecha_inicio,
+            fecha_fin_global=fecha_fin,
+            semanas=[],
+            maestros=[],
+        )
+
+    primer_lunes = semanas[0]["fecha_inicio"]
+    ultimo_domingo = semanas[-1]["fecha_fin"]
+
+    # Contar asistencias agrupadas por maestro y semana ISO
+    query = (
+        select(
+            Asistencia.maestro_id,
+            func.date_trunc("week", Asistencia.fecha).label("semana"),
+            func.count().label("total"),
+        )
+        .join(Maestro, Maestro.id == Asistencia.maestro_id)
+        .join(Alumno, Alumno.id == Asistencia.alumno_id)
+        .filter(
+            Maestro.is_deleted == False,
+            Maestro.is_active == True,
+            Alumno.is_deleted == False,
+            Asistencia.is_deleted == False,
+            Asistencia.asistio == True,
+            Asistencia.fecha >= primer_lunes,
+            Asistencia.fecha < ultimo_domingo + timedelta(days=1),
+        )
+    )
+    if maestro_id:
+        query = query.filter(Asistencia.maestro_id == maestro_id)
+
+    query = query.group_by(Asistencia.maestro_id, "semana")
+    filas = db.execute(query).all()
+
+    # Mapa: (maestro_id, lunes_iso) -> total
+    conteo: dict[tuple[int, str], int] = {}
+    for f in filas:
+        lunes = (f.semana if isinstance(f.semana, date) else f.semana.date())
+        conteo[(f.maestro_id, lunes.isoformat())] = f.total
+
+    # Obtener datos de maestros
+    maestros_query = db.execute(
+        select(Maestro.id, Maestro.nombre, Maestro.apellido_paterno).filter(
+            Maestro.is_deleted == False, Maestro.is_active == True
+        )
+    ).all()
+    if maestro_id:
+        maestros_query = [m for m in maestros_query if m.id == maestro_id]
+
+    # Construir respuesta: 1 entrada por maestro con dict semana_iso -> total (0 si no hay)
+    semanas_labels = [s["semana_iso"] for s in semanas]
+    maestros_lista = []
+    for m in maestros_query:
+        semana_map: dict[str, int] = {}
+        total_general = 0
+        for s in semanas:
+            key = (m.id, s["fecha_inicio"].isoformat())
+            val = conteo.get(key, 0)
+            semana_map[s["semana_iso"]] = val
+            total_general += val
+        maestros_lista.append(
+            MaestroAsistencias(
+                maestro_id=m.id,
+                maestro_nombre=m.nombre,
+                maestro_apellido_paterno=m.apellido_paterno,
+                total_general=total_general,
+                semanas=semana_map,
+            )
+        )
+
+    return AsistenciasPorMaestroResponse(
+        fecha_inicio_global=primer_lunes,
+        fecha_fin_global=ultimo_domingo,
+        semanas=semanas_labels,
+        maestros=maestros_lista,
+    )

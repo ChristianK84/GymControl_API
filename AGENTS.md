@@ -163,11 +163,37 @@ El `_alumno_base_query` hace `selectinload(Alumno.membresias).selectinload(Membr
 | Tipos Membresía | CRUD `/tipos-membresia/` | Admin (escritura), Autenticado (lectura) |
 | Estados Membresía | `GET /estados-membresia/` | Autenticado |
 | Transacciones | CRUD `/transacciones/` + `GET /transacciones/reportes/profit` | Admin |
-| Reportes | `GET /reportes/dashboard` | Admin |
+| Reportes | `GET /reportes/dashboard`, `GET /reportes/asistencias-por-maestro` | Admin |
 | Audit Logs | `GET /audit-logs/` | Admin |
 | App Version | `GET /app/version/{platform}` (público) + `PUT /app/version/{platform}` (admin) | Público / Admin |
 | Reglamentos (admin) | `POST /reglamentos/`, `GET /reglamentos/`, `DELETE /reglamentos/{id}`, `PUT /reglamentos/{id}`, `POST /reglamentos/generar-links`, `GET /reglamentos/firmas`, `GET /reglamentos/firmas/{alumno_id}` | Admin |
 | Reglamento (público) | `GET /reglamento/validar/{token}`, `POST /reglamento/firmar`, `GET /reglamento/firma` | Público (token JWT) |
+
+## Reporte: Asistencias por Maestro (`GET /reportes/asistencias-por-maestro`)
+
+Conteo de asistencias por maestro y semana ISO (lunes-domingo). Solo admin.
+
+### Query params
+
+| Param | Tipo | Default | Descripción |
+|---|---|---|---|
+| `fecha_inicio` | date | hace 8 semanas | Inicio del rango |
+| `fecha_fin` | date | hoy | Fin del rango |
+| `maestro_id` | int | — | Filtrar por un maestro |
+
+### Lógica
+
+- Cuenta solo `Asistencia.asistio == True`.
+- Excluye maestros `is_deleted`/`is_active=False` y alumnos soft-deleted (vía JOIN).
+- Agrupa por maestro y semana usando `date_trunc('week', fecha)` (PostgreSQL, lunes-domingo).
+- Genera la lista de semanas ISO dentro del rango con `_generar_semanas_iso()` (helper en `routes/reportes.py`).
+- Cada maestro devuelve `semanas: dict[semana_iso -> int]` (0 si no hubo asistencias) + `total_general`.
+
+### Schemas (`app/schemas/reportes.py`)
+
+- `SemanaAsistencias` — `{semana_iso, fecha_inicio, fecha_fin, total_asistencias}`
+- `MaestroAsistencias` — `{maestro_id, maestro_nombre, maestro_apellido_paterno, total_general, semanas: dict}`
+- `AsistenciasPorMaestroResponse` — `{fecha_inicio_global, fecha_fin_global, semanas[], maestros[]}`
 
 ## Módulo: Firma Digital de Reglamentos (IMPLEMENTADO)
 
