@@ -171,13 +171,18 @@ def reporte_asistencias_por_maestro(
     if maestro_id:
         query = query.filter(Asistencia.maestro_id == maestro_id)
 
-    query = query.group_by(Asistencia.maestro_id, "semana")
+    query = query.group_by(
+        Asistencia.maestro_id,
+        func.date_trunc("week", Asistencia.fecha),
+    )
     filas = db.execute(query).all()
 
     # Mapa: (maestro_id, lunes_iso) -> total
     conteo: dict[tuple[int, str], int] = {}
     for f in filas:
-        lunes = (f.semana if isinstance(f.semana, date) else f.semana.date())
+        lunes = f.semana
+        if isinstance(lunes, datetime):
+            lunes = lunes.date()
         conteo[(f.maestro_id, lunes.isoformat())] = f.total
 
     # Obtener datos de maestros
