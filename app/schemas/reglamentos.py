@@ -46,6 +46,7 @@ class GenerarLinksResponse(BaseModel):
     enviados: int
     total: int
     ya_firmados: int = 0
+    ya_leidos: int = 0
 
 
 class FirmaReglamentoResponse(BaseModel):

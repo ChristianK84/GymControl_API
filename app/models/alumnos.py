@@ -19,7 +19,7 @@ class Alumno(Base):
     maestro_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("maestros.id", ondelete="RESTRICT"), nullable=False
     )
-    fotografia: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    fotografia: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     fecha_inscripcion: Mapped[date] = mapped_column(Date, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)

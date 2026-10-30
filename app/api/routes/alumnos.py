@@ -89,6 +89,14 @@ def create_alumno(
 ):
     maestro_id = current_maestro.id if current_maestro else payload.maestro_id
 
+    maestro = db.query(Maestro).filter(
+        Maestro.id == maestro_id,
+        Maestro.is_deleted == False,
+        Maestro.is_active == True,
+    ).first()
+    if not maestro:
+        raise HTTPException(status_code=400, detail="El entrenador seleccionado no existe o no está activo")
+
     alumno = Alumno(
         nombrecompleto=payload.nombrecompleto,
         apellido_paterno=payload.apellido_paterno,
@@ -173,7 +181,10 @@ def get_alumno(
     _user=Depends(get_current_user),
     current_maestro: Maestro | None = Depends(get_current_maestro),
 ):
-    return _autorizar_alumno(alumno_id, db, current_maestro)
+    alumno = _autorizar_alumno(alumno_id, db, current_maestro)
+    resp = AlumnoResponse.model_validate(alumno)
+    resp.inscripcion, resp.membresia = _get_resumenes(alumno)
+    return resp
 
 
 @router.put("/{alumno_id}", response_model=AlumnoResponse)
@@ -203,6 +214,13 @@ def update_alumno(
             setattr(alumno, field, update_data[field])
 
     if "maestro_id" in update_data:
+        new_maestro = db.query(Maestro).filter(
+            Maestro.id == update_data["maestro_id"],
+            Maestro.is_deleted == False,
+            Maestro.is_active == True,
+        ).first()
+        if not new_maestro:
+            raise HTTPException(status_code=400, detail="El entrenador seleccionado no existe o no está activo")
         alumno.maestro_id = update_data["maestro_id"]
 
     if payload.tutor is not None:

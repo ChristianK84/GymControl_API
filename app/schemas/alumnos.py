@@ -1,5 +1,5 @@
-from datetime import date, datetime
-from typing import Optional
+from datetime import date, datetime, timedelta
+from typing import Literal, Optional
 
 import re
 
@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 # ── Tutor ──
 
 _EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+_TELEFONO_PATTERN = re.compile(r"^[\d\s\-\(\)\+\.]+$")
 
 
 class TutorCreate(BaseModel):
@@ -17,6 +18,14 @@ class TutorCreate(BaseModel):
     apellido_materno: Optional[str] = Field(default=None, max_length=100)
     telefono: str = Field(max_length=20)
     email: str = Field(max_length=150)
+
+    @field_validator("telefono")
+    @classmethod
+    def validar_telefono(cls, v: str) -> str:
+        v = v.strip()
+        if not _TELEFONO_PATTERN.match(v) or len(re.sub(r"\D", "", v)) < 10:
+            raise ValueError("Teléfono inválido (mínimo 10 dígitos)")
+        return v
 
     @field_validator("email")
     @classmethod
@@ -32,6 +41,15 @@ class TutorUpdate(BaseModel):
     apellido_materno: Optional[str] = None
     telefono: Optional[str] = None
     email: Optional[str] = None
+
+    @field_validator("telefono")
+    @classmethod
+    def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not _TELEFONO_PATTERN.match(v) or len(re.sub(r"\D", "", v)) < 10:
+                raise ValueError("Teléfono inválido (mínimo 10 dígitos)")
+        return v
 
     @field_validator("email")
     @classmethod
@@ -61,12 +79,29 @@ class ContactoEmergenciaCreate(BaseModel):
     apellido_materno: Optional[str] = Field(default=None, max_length=100)
     telefono: str = Field(max_length=20)
 
+    @field_validator("telefono")
+    @classmethod
+    def validar_telefono(cls, v: str) -> str:
+        v = v.strip()
+        if not _TELEFONO_PATTERN.match(v) or len(re.sub(r"\D", "", v)) < 10:
+            raise ValueError("Teléfono inválido (mínimo 10 dígitos)")
+        return v
+
 
 class ContactoEmergenciaUpdate(BaseModel):
     nombre: Optional[str] = None
     apellido_paterno: Optional[str] = None
     apellido_materno: Optional[str] = None
     telefono: Optional[str] = None
+
+    @field_validator("telefono")
+    @classmethod
+    def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not _TELEFONO_PATTERN.match(v) or len(re.sub(r"\D", "", v)) < 10:
+                raise ValueError("Teléfono inválido (mínimo 10 dígitos)")
+        return v
 
 
 class ContactoEmergenciaResponse(BaseModel):
@@ -83,7 +118,7 @@ class ContactoEmergenciaResponse(BaseModel):
 # ── Ficha médica ──
 
 class FichaMedicaCreate(BaseModel):
-    tipo_sangre: Optional[str] = Field(default=None, max_length=10)
+    tipo_sangre: Optional[Literal["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]] = Field(default=None, max_length=10)
     alergias: Optional[str] = Field(default=None, max_length=500)
     medicamentos: Optional[str] = Field(default=None, max_length=500)
     condiciones_medicas: Optional[str] = Field(default=None, max_length=500)
@@ -116,14 +151,30 @@ class AlumnoCreate(BaseModel):
     nombrecompleto: str = Field(max_length=150)
     apellido_paterno: str = Field(max_length=100)
     apellido_materno: Optional[str] = Field(default=None, max_length=100)
-    rama: str = Field(max_length=20)
+    rama: Literal["Varonil", "Femenil"]
     fecha_nacimiento: date
     maestro_id: int = Field(gt=0)
-    fotografia: Optional[str] = Field(default=None, max_length=255)
+    fotografia: Optional[str] = Field(default=None, max_length=500)
     fecha_inscripcion: date
     tutor: TutorCreate
     contacto_emergencia: ContactoEmergenciaCreate
     ficha_medica: FichaMedicaCreate
+
+    @field_validator("fecha_nacimiento")
+    @classmethod
+    def validar_fecha_nacimiento(cls, v: date) -> date:
+        if v > date.today():
+            raise ValueError("La fecha de nacimiento no puede ser futura")
+        if v.year < 1900:
+            raise ValueError("La fecha de nacimiento es inválida")
+        return v
+
+    @field_validator("fecha_inscripcion")
+    @classmethod
+    def validar_fecha_inscripcion(cls, v: date) -> date:
+        if v > date.today() + timedelta(days=1):
+            raise ValueError("La fecha de inscripción no puede ser futura")
+        return v
 
 
 class AlumnoUpdate(BaseModel):

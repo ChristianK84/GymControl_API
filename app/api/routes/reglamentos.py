@@ -163,7 +163,11 @@ def generar_links(
     alumnos = (
         db.query(Alumno)
         .options(joinedload(Alumno.tutor))
-        .filter(Alumno.id.in_(payload.alumno_ids), Alumno.is_deleted == False)
+        .filter(
+            Alumno.id.in_(payload.alumno_ids),
+            Alumno.is_deleted == False,
+            Alumno.is_active == True,
+        )
         .all()
     )
     if not alumnos:
@@ -172,6 +176,7 @@ def generar_links(
     base_url = str(request.base_url).rstrip("/")
     enviados = 0
     ya_firmados = 0
+    ya_leidos = 0
     emails_data = []
 
     for alumno in alumnos:
@@ -198,6 +203,10 @@ def generar_links(
             if firma_existente.fecha_firma:
                 logger.info("Alumno %d ya firmó, saltando", alumno_id)
                 ya_firmados += 1
+                continue
+            if not reglamento.requires_firma and firma_existente.fecha_lectura:
+                logger.info("Alumno %d ya leyó el documento, saltando", alumno_id)
+                ya_leidos += 1
                 continue
             token_usado_anterior = firma_existente.token_usado
             payload_viejo = _decodificar_token(token_usado_anterior)
@@ -245,7 +254,9 @@ def generar_links(
         db, _admin.id, "GENERAR_LINKS", "reglamento", reglamento.id,
         f"Generados links para {len(alumnos)} alumnos, {enviados} emails intentados"
     )
-    return GenerarLinksResponse(enviados=enviados, total=len(alumnos), ya_firmados=ya_firmados)
+    return GenerarLinksResponse(
+        enviados=enviados, total=len(alumnos), ya_firmados=ya_firmados, ya_leidos=ya_leidos
+    )
 
 
 def enviar_lote(emails_data, reg_titulo, reg_version, requires_firma=True):

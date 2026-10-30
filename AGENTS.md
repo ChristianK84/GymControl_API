@@ -239,7 +239,7 @@ El tutor recibe un link por correo → abre en navegador (sin login) → ve sus 
 | `GET` | `/api/v1/reglamentos/` | Autenticado | Listar reglamentos |
 | `DELETE` | `/api/v1/reglamentos/{id}` | Admin | Soft delete |
 | `PUT` | `/api/v1/reglamentos/{id}` | Admin | Actualizar reglamento |
-| `POST` | `/api/v1/reglamentos/generar-links` | Admin | Generar JWT por alumno + enviar emails |
+| `POST` | `/api/v1/reglamentos/generar-links` | Admin | Generar JWT por alumno + enviar emails. Omite alumnos `is_deleted` o `is_active=False`, y a quienes ya firmaron (`fecha_firma`) o, si `requires_firma=False`, ya leyeron (`fecha_lectura`). Responde `{enviados, total, ya_firmados, ya_leidos}` |
 | `GET` | `/api/v1/reglamentos/firmas` | Autenticado | Listar firmas (filtros: reglamento_id, alumno_id, estado) |
 | `GET` | `/api/v1/reglamentos/firmas/{alumno_id}` | Autenticado | Estado de firma de un alumno específico |
 | `GET` | `/api/v1/reglamento/validar/{token}` | Público | Validar token JWT y retornar datos |
